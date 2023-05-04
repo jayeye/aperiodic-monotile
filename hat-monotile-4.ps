@@ -1,0 +1,1639 @@
+%!
+
+/scalefactor 20 def
+/inches { 72 mul } def
+
+/tt { gsave newpath aload pop .1 0 360 arc fill grestore } def
+/tc { gsave 1 0 0 0 setcmykcolor tt grestore } def
+/tm { gsave 0 1 0 0 setcmykcolor tt grestore } def
+/ty { gsave 0 0 1 0 setcmykcolor tt grestore } def
+
+/pt { gsave newpath aload pop .05 0 360 arc fill grestore } def
+/pr { gsave 1 0 0 setrgbcolor pt grestore } def
+/pg { gsave 0 1 0 setrgbcolor pt grestore } def
+/pb { gsave 0 0 1 setrgbcolor pt grestore } def
+
+/p {pstack}def
+
+/pointgrid {
+    -11 1 11 {
+        -9 1 9 {
+            1 index 2 array astore pg
+        } for
+        0 exch 2 array astore pr
+    } for
+    -9 1 9 {
+        0 2 array astore pr
+    } for
+} def
+
+% gs hat-monotile-3.ps
+/cls {
+    grestore
+
+    gsave
+    newpath
+    0 0 moveto 8.5 inches 0 rlineto 0 11 inches rlineto -8.5 inches 0 rlineto
+    closepath
+    1 setgray fill
+    grestore
+
+    gsave
+    4.25 inches 5.5 inches translate
+    scalefactor dup scale
+    /HelveticaBold findfont 18 scalefactor div scalefont setfont
+    pointgrid
+} def
+
+cls
+
+
+
+% Some convenient 2d-vector operations
+
+/vadd {                 % [x1 y1] [x2 y2] >>> [x1+x2 y1+y2]
+    aload pop           % [x1 y1] x2 y2
+    3 -1 roll           % x2 y2 [x1 y1]
+    aload pop           % x2 y2 x1 y1
+    3 -1 roll           % x2 x1 y1 y2
+    add                 % x2 x1 y1+y2
+    3 1 roll            % y1+y2 x2 x1
+    add                 % y1+y2 x2+x1
+    exch                % x2+x1 y1+y2
+    2 array astore      % [x1+x2 y1+y2]
+} def
+
+/vneg {                 % [x y] >>> [-x -y]
+    aload pop
+    neg exch neg exch
+    2 array astore
+} def
+
+/vsub {                 % [x1 y1] [x2 y2] >>> [x1-x2 y1-y2]
+    vneg
+    vadd
+} def
+
+/vmul {                 % [x y] m >>> [x*m y*m]
+    exch aload pop      % m x y
+    2 index             % m x y m
+    mul                 % m x y*m
+    3 1 roll            % y*m m x
+    mul                 % y*m x*m
+    exch
+    2 array astore
+} def
+
+/vmidpoint {             % [x1 y1] [x2 y2] >>> [(x1+x2)/2 (y1+y2)/2]
+    vadd
+    .5 vmul
+} def
+
+/vmeasure {             % [x y] >>> sqrt(x^2+y^2)
+    aload pop           % x y
+    dup mul             % x y*y
+    exch dup mul        % y*y x*x
+    add                 % x*x+y*y
+    sqrt                % sqrt(x^2+y^2)
+} def
+
+/vrot {                 % [x y] r >>> [xr yr]
+    dup cos             % [x y] r cos(r)
+    exch sin            % [x y] cos(r) sin(r)
+    3 -1 roll           % cos(r) sin(r) [x y]
+    dup                 % cos(r) sin(r) [x y] [x y]
+    aload pop           % cos(r) sin(r) [x y] x y
+    3 index             % cos(r) sin(r) [x y] x y sin(r)
+    neg                 % cos(r) sin(r) [x y] x y -sin(r)
+    mul                 % cos(r) sin(r) [x y] x -y*sin(r)
+    exch                % cos(r) sin(r) [x y] -y*sin(r) x
+    4 index             % cos(r) sin(r) [x y] -y*sin(r) x cos(r)
+    mul                 % cos(r) sin(r) [x y] -y*sin(r) x*cos(r)
+    add                 % cos(r) sin(r) [x y] x*cos(r)-y*sin(r)  // the new X
+    exch aload pop      % cos(r) sin(r) x*cos(r)-y*sin(r) x y
+    5 -1 roll           % sin(r) x*cos(r)-y*sin(r) x y cos(r)
+    mul                 % sin(r) x*cos(r)-y*sin(r) x y*cos(r)
+    exch                % sin(r) x*cos(r)-y*sin(r) y*cos(r) x
+    4 -1 roll           % x*cos(r)-y*sin(r) y*cos(r) x sin(r)
+    mul                 % x*cos(r)y*sin(r) y*cos(r) x*sin(r)
+    add                 % x*cos(r)-y*sin(r) x*sin(r)+y*cos(r)
+    2 array astore
+} def
+
+
+% % Intersect line segment [[x1 y1] [x2 y2]] with [[x3 y3] [x4 y4]]
+
+/vintersect {        % [x1 y1] [x2 y2] [x3 y3] [x4 y4] >>> ---
+    11 dict begin
+    aload pop /y4 exch def /x4 exch def
+    aload pop /y3 exch def /x3 exch def
+    aload pop /y2 exch def /x2 exch def
+    aload pop /y1 exch def /x1 exch def
+
+    /denominator
+      x1 x2 sub y3 y4 sub mul
+      y1 y2 sub x3 x4 sub mul sub
+    def
+
+      x1 y2 mul y1 x2 mul sub x3 x4 sub mul
+      x3 y4 mul y3 x4 mul sub x1 x2 sub mul sub
+      denominator div
+
+      x1 y2 mul y1 x2 mul sub y3 y4 sub mul
+      x3 y4 mul y3 x4 mul sub y1 y2 sub mul sub
+      denominator div
+      2 array astore
+      end
+} def
+
+/vdangle {                      % [x1 y1] [x2 y2] >>> angle-between-vectors
+    aload pop exch atan         % [x1 y1] a2
+    exch aload pop exch atan    % a2 a1
+    sub                         % a2-a1
+} def
+
+
+% symmetries
+
+/hmirror {              % [x y] >>> [x -y]
+    aload pop
+    neg
+    2 array astore
+} def
+
+/vmirror {              % [x y] >>> [-x y]
+    aload pop
+    exch neg exch
+    2 array astore
+} def
+
+/vopposite {            % [x y] >>> [-x -y]
+    vneg
+} def
+
+% translate an array of vectors
+/vtranslate {              % [[x1 y1] [x2 y2] ...] [x y] >>> [[x1t y1t] [x2t y2t] ...]
+    1 dict begin
+    /trans exch def
+    mark exch
+    {
+        trans vadd
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% rotate an array of vectors
+/vrotate {              % [[x1 y1] [x2 y2] ...] r >>> [[x1r y1r] [x2r y2r] ...]
+    1 dict begin
+    /angle exch def
+    mark exch
+    {
+        angle vrot
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% flip left-right an array of vectors
+/vflip {                % [[x1 y1] [x2 y2] ...] >>> [[-x1 y1] [-x2 y2] ...]
+    mark exch
+    {
+        vmirror
+    } forall
+    counttomark
+    array astore
+    exch pop
+} def
+
+%
+%                     E------M------D
+%                    /               \
+%                   /                 \
+%                  N                   L
+%                 /                     \
+%                /                       \
+%               F            O            C
+%                \                       /   E------M------D
+%                 \                     /   /               \
+%                  P                   K   /                 \
+%                   \                 /   N                   L
+%                    \               /   /                     \
+%                     A------J------B   /                       \
+%                                      F            O            C
+%                     E------M------D   \                       /
+%                    /               \   \                     /
+%                   /                 \   P                   K
+%                  N                   L   \                 /
+%                 /                     \   \               /
+%                /                       \   A------J------B
+%               F            O            C
+%                \                       /
+%                 \      "black"        /
+%                  P                   K
+%                   \                 /
+%                    \               /
+%                     A------J------B
+%
+%
+%   O: (   0,     0)
+%   A: (-1/2, -sq32)
+%   B: ( 1/2, -sq32)
+%   C: (   1,     0)
+%   D: ( 1/2,  sq32)
+%   E: (-1/2,  sq32)
+%   F: (  -1,     0)
+%
+
+/half .5 def
+/sq3 3 sqrt def
+/sq32 sq3 2 div def
+
+% Points on hexagon
+/O [ 0 0 ] def
+/A [ half neg sq32 neg ] def
+/B A vmirror def
+/C [ 1 0 ] def
+/D A vopposite def
+/E A hmirror def
+/F C vmirror def
+
+/J A B vmidpoint def
+/K B C vmidpoint def
+/L C D vmidpoint def
+/M D E vmidpoint def
+/N E F vmidpoint def
+/P F A vmidpoint def
+
+/EA E A vsub def
+/CA C A vsub def
+
+%
+%
+%                     Er-----Mr-----Dr
+%                    /               \
+%                   /                 \
+%                  Nr                 [8]
+%                 /                     \
+%                /                       \
+%               Fr          [9]          [7]----[6]-----Dg
+%                \                       /               \
+%                 \                     /                 \
+%                  Pr                  Ng                  Lg
+%                   \                 /                     \
+%                    \               /                       \
+%                   [11]----[10]----D           [5]           Cg
+%                    /               \                       /
+%                   /                 \                     /
+%                [12]                 [1]                 [4]
+%                 /                     \                 /
+%                /                       \               /
+%               F           [0]          [2]-----Jg----[3]
+%                \                       /
+%                 \      "black"        /
+%                  P                   K
+%                   \                 /
+%                    \               /
+%                     A------J------B
+
+
+/point-O 0 def
+/point-L 1 def
+/point-C 2 def
+/point-Bg 3 def
+/point-Kg 4 def
+/point-Og 5 def
+/point-Mg 6 def
+/point-Eg 7 def
+/point-Lr 8 def
+/point-Or 9 def
+/point-M 10 def
+/point-E 11 def
+/point-N 12 def
+
+/hat-upright [
+    O
+    L
+    C
+    B CA vadd
+    K CA vadd
+    O CA vadd
+    M CA vadd
+    E CA vadd
+    L EA vadd
+    O EA vadd
+    M
+    E
+    N
+    O % ???
+] def
+/hat-flipped hat-upright vflip def
+
+/vpathrel {             % arr index of "zero" point >>>
+                        % arr zpx
+    mark                % arr zpx -mark-
+    3 -1 roll           % zpx -mark- arr
+    aload pop           % zpx -mark- a_0 a_1 ... a_{n-1}
+    counttomark         % zpx -mark- a_0 a_1 ... a_{n-1} n
+    dup                 % zpx -mark- a_0 a_1 ... a_{n-1} n n
+    3 add               % zpx -mark- a_0 a_1 ... a_{n-1} n n+3
+    -1 roll             % -mark- a_0 a_1 ... a_{n-1} n zpx
+    neg
+    roll                % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx}
+    counttomark         % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx} n
+    1 sub               % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx} n-1
+    {                   % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx-2} a_{zpx-1} a_{zpx}
+        exch dup        % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx-2} a_{zpx} a_{zpx-1} a_{zpx-1}
+        3 1 roll       % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx-2}  a_{zpx-1} a_{zpx} a_{zpx-1}
+        vsub            % -mark- a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx-2}  a_{zpx-1} (a_{zpx}-a_{zpx-1})
+        counttomark
+        1 roll          % -mark- (a_{zpx}-a_{zpx-1}) a_{zpx+1) ... a_n{n-1} a_0 ... a_{zpx-2}  a_{zpx-1}
+    } repeat
+    pop
+    counttomark
+    array
+    astore
+    exch
+    pop
+} def
+
+/cshow { dup stringwidth pop -2 div 0 rmoveto show } def  % XXX
+
+/apath {                        % hatarray strokeproc fillproc >>> -
+    2 dict begin
+    /fillproc exch def
+    /strokeproc exch def
+    gsave
+        newpath
+        dup 0 get aload pop moveto          % moveto the CAR
+        dup length 1 sub 1 exch getinterval % lineto the CDR
+        {
+            aload pop lineto
+        } forall
+        closepath
+        gsave fillproc grestore
+        gsave strokeproc grestore
+    grestore
+    end
+} def
+
+/apath-arrows {                  % arrowarray >>> -
+    gsave
+        newpath
+        dup 0 get aload pop moveto          % moveto the CAR
+        dup length 1 sub 1 exch getinterval % lineto the CDR
+        {
+            aload pop arrowto
+        } forall
+        closepath
+        strk exec
+    grestore
+} def
+
+/apath-rel-arrows {             % arrowarray >>> -
+    gsave
+        currentpoint
+        newpath
+        moveto
+        {
+            aload pop rarrowto
+        } forall
+        closepath
+        strk exec
+    grestore
+} def
+
+/apath-rel {                    % hatarray strokeproc fillproc >>> -
+    gsave                       % hatarray stokeproc fillproc
+        3 -1 roll               % stokeproc fillproc hatarray
+        currentpoint
+        newpath
+        moveto
+        {
+            aload pop rlineto
+        } forall
+        closepath               % stokeproc fillproc
+        gsave exec grestore
+        gsave exec grestore
+    grestore
+} def
+
+% hat-flipped-rel 4
+/advance-rel {                  % hatarray offset >>> ---
+    mark                        % hatarray offset -mark
+    3 -1 roll                   % offset -mark- hatarray
+    aload pop                   % offset -mark- a_0 a_1 ... a_{n-1}
+    counttomark                 % offset -mark- a_0 a_1 ... a_{n-1} n
+    2 add                       % offset -mark- a_0 a_1 ... a_{n-1} n+3
+    -1 roll                     % -mark- a_0 a_1 ... a_{n-1} offset
+    {
+        counttomark             % -mark- a_1 ... a_{o-1} m
+        -1 roll                 % -mark  a_1 ... a_{o-1} a_0
+        aload pop rmoveto       % -mark  a_1 ... a_{o-1}
+    } repeat
+    cleartomark
+} def
+
+
+
+
+
+
+
+
+%% main()
+
+/strk {
+    { 1 setlinejoin .1 setlinewidth stroke }
+} def
+
+/strkk {
+    { 1 setlinejoin .025 setlinewidth stroke }
+} def
+
+/strkr {
+    { 1 setlinejoin .025 setlinewidth 1 0 0 setrgbcolor stroke }
+} def
+
+/strkg {
+    { 1 setlinejoin .025 setlinewidth 0 1 0 setrgbcolor stroke }
+} def
+/strkb {
+    { 1 setlinejoin .025 setlinewidth 0 0 1 setrgbcolor stroke }
+} def
+
+/strkc {
+    { 1 setlinejoin .025 setlinewidth 1 0 0 0 setcmykcolor stroke }
+} def
+
+/strkm {
+    { 1 setlinejoin .025 setlinewidth 0 1 0 0 setcmykcolor stroke }
+} def
+/strky {
+    { 1 setlinejoin .025 setlinewidth 0 0 1 0 setcmykcolor stroke }
+} def
+
+/fillk {
+    { 0 0 0 1 setcmykcolor fill }
+} def
+
+/fillc {
+    { 1 0 0 0 setcmykcolor fill }
+} def
+
+/fillm {
+    { 0 1 0 0 setcmykcolor fill }
+} def
+
+/filly {
+    { 0 0 1 0 setcmykcolor fill }
+} def
+
+/fillw {
+    { 0 0 0 0 setcmykcolor fill }
+} def
+
+
+/sky {
+    { .6 .8 .9 setrgbcolor fill }
+} def
+
+/azure {
+    { 0 .55 .9 setrgbcolor fill }
+} def
+
+/grey {
+    { .75 setgray fill }
+} def
+
+/white {
+    { 1 setgray fill }
+} def
+
+
+/targetmark {
+    gsave
+    .2 scalefactor div setlinewidth
+    newpath
+    0 0
+    .1 0 360 arc
+    closepath stroke
+    1 0 0 setrgbcolor
+    newpath
+    0 -.1 moveto 0 .1 lineto
+    -.1 0 moveto .1 0 lineto
+    stroke
+    grestore
+} def
+
+/hat-q-central
+    hat-upright
+    -60 vrotate
+def
+
+/hat-q-bottom {
+    hat-q-central vflip
+    -60 vrotate
+    dup
+    point-Og get
+    vneg
+    vtranslate
+} def
+
+/hat-q-top
+    hat-upright
+    vflip
+    120 vrotate
+    dup
+    8 get vneg
+    hat-q-central 12 get
+    vadd
+    vtranslate
+def
+
+/hat-q-right
+    hat-upright
+    vflip
+    -120 vrotate
+    hat-q-central 5 get vtranslate
+def
+
+/hat-q-left
+    hat-upright
+    vflip
+    -120 vrotate
+    dup
+    5 get
+    vneg
+    vtranslate
+def
+
+/et-left-anchor hat-q-left 0 get def
+/et-right-anchor hat-q-right 9 get def
+/et-top-anchor hat-q-top 0 get def
+/enclosing-triangle [
+    et-left-anchor
+    hat-q-left 11 get
+    et-right-anchor
+    hat-q-right 7 get
+    et-top-anchor
+    hat-q-top 11 get
+] def
+
+/vcentroid {            % arr1 arr2 arr3 >>> arrc
+    2 index             % arr1 arr2 arr3 arr1
+    2 index             % arr1 arr2 arr3 arr1 arr2
+    vmidpoint           % arr1 arr2 arr3 m(arr1,arr2)
+    1 index             % arr1 arr2 arr3 m(arr1,arr2) arr3
+    5 2 roll            % m(arr1,arr2) arr3 arr1 arr2 arr3
+    vmidpoint           % m(arr1,arr2) arr3 arr1 m(arr2,arr3)
+    vintersect
+} def
+
+
+/enclosing-triangle-centroid
+  et-top-anchor et-right-anchor vmidpoint et-left-anchor
+  et-top-anchor et-left-anchor vmidpoint et-right-anchor
+  vintersect
+def
+
+
+% Draw a "raw" 4-tile triangle:
+% The "central" hat starts at the existing [0 0]
+
+
+
+
+/trqtile {              % etrp strkpr odrpr idrpr rot [x y] >>> -
+    6 2 roll            % rot [x y] etrp strkpr odrpr idrpr
+
+    hat-q-central       % rot [x y] etrp strkpr odrpr idrpr array
+    6 index vrotate     % rot [x y] etrp strkpr odrpr idrpr array-r
+    5 index vtranslate  % rot [x y] etrp strkpr odrpr idrpr array-r-t
+    exch                % rot [x y] etrp strkpr odrpr array-r idrpr
+    3 index exch        % rot [x y] etrp strkpr odrpr array-r strkpr idrpr
+    apath               % rot [x y] etrp strkpr odrpr
+
+    hat-q-right         % rot [x y] etrp strkpr odrpr array
+    5 index vrotate     % rot [x y] etrp strkpr odrpr array-r
+    4 index vtranslate  % rot [x y] etrp strkpr odrpr array-r-t
+    2 index 2 index
+    apath               % rot [x y] etrp strkpr odrpr
+
+    hat-q-left          % rot [x y] etrp strkpr odrpr array
+    5 index vrotate
+    4 index vtranslate  % rot [x y] etrp strkpr odrpr array-r-t
+    2 index 2 index
+    apath               % rot [x y] etrp strkpr odrpr
+
+    hat-q-top           % rot [x y] etrp strkpr odrpr array
+    5 index vrotate     % rot [x y] etrp strkpr odrpr array-r
+    4 index vtranslate  % rot [x y] etrp strkpr odrpr array-r-t
+    3 1 roll            % rot [x y] etrp array-r-t strkpr odrpr
+    apath               % rot [x y] etrp
+    {
+        enclosing-triangle % rot [x y] array
+        3 -1 roll          % [x y] array rot
+        vrotate            % [x y] array-r
+        exch               % array-r [x y]
+        vtranslate         % array-r-t
+        strk {} apath
+    }
+    {
+        pop pop
+    } ifelse
+%    hat-q-left 0 get gsave aload pop translate targetmark grestore
+} def
+
+/qtile {    % etrp strkpr odrpr idrpr  >>> ---
+    hat-q-central exch 3 index exch apath
+    hat-q-right 2 index 2 index apath
+    hat-q-left 2 index 2 index apath
+    hat-q-top 3 1 roll apath
+    { enclosing-triangle strk {} apath } if
+%    hat-q-left 0 get gsave aload pop translate targetmark grestore
+} def
+
+
+
+
+/hat-p-point
+    hat-flipped
+%    dup 0 get    gsave aload pop translate targetmark grestore
+def
+
+/hat-p-fletching
+    hat-p-point
+    -60 vrotate
+    dup
+    10 get
+    hat-p-point
+    4 get
+    exch
+    vsub
+    vtranslate
+ %   dup 0 get    gsave aload pop translate targetmark grestore
+def
+
+% dup 0 get    gsave aload pop translate targetmark grestore
+
+/arrowto {
+    2 copy               % xt yt xt yt
+    currentpoint         % xt yt xt yt xc yc
+    6 2 roll             % xc yc xt yt xt yt
+    lineto               % xc yc xt yt
+    3 -1 roll            % xc xt yt yc
+    sub                  % xc xt yt-yc
+    3 1 roll             % yt-yc xc xt
+    sub neg              % yt-yc xt-xc
+    exch
+    gsave
+    exch atan rotate
+    -.3 .2 rmoveto
+    .3 -.2 rlineto
+    -.3 -.2 rlineto
+    .3 .2 rmoveto
+    strk exec
+    grestore
+} def
+
+/rarrowto {
+    2 copy
+    rlineto
+    gsave
+    exch atan rotate
+    -.3 .2 rmoveto
+    .3 -.2 rlineto
+    -.3 -.2 rlineto
+    .3 .2 rmoveto
+    strk exec
+    grestore
+} def
+
+
+
+
+/ea-front-anchor hat-p-point 9 get def
+/enclosing-arrow [
+        ea-front-anchor
+        hat-p-fletching 3 get
+        hat-p-fletching 0 get
+        hat-p-point 0 get
+        hat-p-point 11 get
+] def
+
+
+/trgtile {              % eap strkpr drpr rot [x y]   >>> -
+    5 2 roll            % rot [x y] eap strkpr drpr
+    hat-p-point         % rot [x y] eap strkpr drpr array
+    5 index vrotate     % rot [x y] eap strkpr drpr array-r
+    4 index vtranslate  % rot [x y] eap strkpr drpr array-r-t
+    2 index             % rot [x y] eap strkpr drpr array-r-t strkpr
+    2 index             % rot [x y] eap strkpr drpr array-r-t strkpr drpr
+    apath               % rot [x y] eap strkpr drpr
+
+    hat-p-fletching     % rot [x y] eap strkpr drpr array
+    5 index vrotate     % rot [x y] eap strkpr drpr array-r
+    4 index vtranslate  % rot [x y] eap strkpr drpr array-r-t
+    3 1 roll            % rot [x y] eap array-r-t strkpr drpr
+    apath               % rot [x y] eap
+
+    {
+        enclosing-arrow   % rot [x y] array
+        3 -1 roll         % [x y] array rot
+        vrotate           % [x y] array-r
+        exch vtranslate   % array-r-t
+        strk {}
+        apath
+    }
+    {
+        pop
+        pop
+    } ifelse
+} def
+
+/gtile {
+    hat-p-point 2 index 2 index apath
+    hat-p-fletching 3 1 roll apath
+    { enclosing-arrow strk {} apath } if
+} def
+
+
+
+/rightbigtile {
+    dup dup
+
+    strkk sky azure qtile
+    gsave
+        hat-q-central 4 get
+        hat-p-point 6 get
+        vsub
+        aload pop
+        translate
+        strkk grey gtile
+    grestore
+
+    gsave
+        hat-q-right 5 get
+        aload pop
+        translate
+        -60 rotate
+        strkk white gtile
+    grestore
+} def
+
+/leftbigtile {
+    dup dup
+    strkk sky azure 0 [0 0] trqtile
+    gsave
+        hat-q-left 0 get
+        hat-p-point 9 get -120 vrot
+        vsub
+        aload pop translate
+        -120 rotate
+        strkk grey gtile
+    grestore
+
+    gsave
+        hat-q-central 4 get
+        hat-p-point 6 get
+        vsub
+        aload pop
+        translate
+        strkk white gtile
+    grestore
+    end
+} def
+
+/theta 0 def
+/offset [2 3] def
+
+/supertile {
+    false qtile
+    gsave
+        hat-q-top 0 get
+        hat-p-point 9 get vsub
+        aload pop translate
+        false grey gtile
+    grestore
+    gsave
+        -3 0 translate
+        120 rotate
+        false {} gtile
+    grestore
+} def
+
+
+% gs hat-monotile-3.ps
+
+
+/hat-upright-rel hat-upright 0 vpathrel def
+/hat-flipped-rel hat-flipped 0 vpathrel def
+/hat-qq-left hat-flipped 0 vpathrel -120 vrotate def
+/hat-qq-top hat-flipped 8 vpathrel 120 vrotate def
+/hat-qq-right hat-flipped 3 vpathrel -120 vrotate def
+/hat-qq-center hat-upright 4 vpathrel -60 vrotate def
+/hat-2b-right hat-flipped 9 vpathrel def
+/hat-2b-left hat-flipped 8 vpathrel -60 vrotate def
+
+/hat-2l-right hat-flipped 9 vpathrel -120 vrotate def
+/hat-2l-left hat-flipped 8  vpathrel -180 vrotate def
+
+% /hat-2r-right-bad hat-flipped 9 vpathrel 120 vrotate def
+% /hat-2r-left-bad hat-flipped 8  vpathrel 60 vrotate def
+
+/hat-2r-left hat-flipped 0  vpathrel -120 vrotate def
+/hat-2r-right hat-flipped 3  vpathrel -60 vrotate def
+
+/drawenclosing true def
+
+% gsave 4 5 translate true leftbigtile grestore
+
+/c2aa {
+    currentpoint 2 array astore
+} def
+
+/reltilecore {          % --- >>> [x1 y1] [x2 y2] [x3 y3]
+    c2aa                % [x1 y1]
+                                            % @[0, 0]
+    hat-qq-left strkk sky apath-rel         % @[0, 0] (still)
+
+    hat-qq-left 4 advance-rel               % @[1/2, √3]
+
+    hat-qq-top strkk sky apath-rel          % @[1/2, √3] (still)
+
+    % Brief excursion to top-right point
+    % of enclosing triangle
+    currentpoint        % [x1 y1] X Y
+    hat-qq-top 5 advance-rel                % @[3, 2√3]
+
+    c2aa                % [x1 y1] X Y [x3 y3]
+    3 1 roll            % [x1 y1] [x3 y3] X Y
+    moveto              % [x1 y1] [x3 y3]   % @[1/2, √3] (back)
+
+    hat-qq-top 9 advance-rel                % @[4, √3]
+    hat-qq-right strkk sky apath-rel        % @[4, √3] (still)
+
+    % Brief excursion to bottom-right point
+    % of enclosing triangle
+    currentpoint        % [x1 y1] [x3 y3] X Y
+    hat-qq-right 6 advance-rel              % @[4.5, -√3/2
+    c2aa                % [x1 y1] [x3 y3] X Y [x2 y2]
+    3 1 roll            % [x1 y1] [x3 y3] [x2 y2] X Y
+    moveto                                  % @[4, √3] (back)
+    hat-qq-right 9 advance-rel              % @[3, -√3/2]
+    hat-qq-center strkk azure apath-rel     % @[3, -√3/2] still)
+
+    %                     % [x1 y1] [x3 y3] [x2 y2]
+    % 2 index             % [x1 y1] [x3 y3] [x2 y2] e0
+    % dup                 % [x1 y1] [x3 y3] [x2 y2] e0 e0
+    % [.5 sq32 neg] vadd  % [x1 y1] [x3 y3] [x2 y2] e0 e1
+    % 2 index             % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2
+    % dup                 % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2 e2
+    % [.5 sq32] vadd      % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2 e3
+    % 5 index             % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2 e3 e4
+    % dup                 % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2 e3 e4 e4
+    % [-1 0] vadd         % [x1 y1] [x3 y3] [x2 y2] e0 e1 e2 e3 e4 e5
+    % 6 array astore      % [x1 y1] [x3 y3] [x2 y2] [e0 e1 e2 e3 e4 e5]
+    % 4 1 roll            % [e0 e1 e2 e3 e4 e5] [x1 y1] [x3 y3] [x2 y2]
+} def
+
+% 0 0 moveto reltilecore
+% [e0 e1 e2 e3 e4 e5] apath-arrows
+
+
+/drawer {
+    drawenclosing {            % [x1 y1] [x3 y3] [x2 y2] X Y
+        newpath
+        4 index
+        aload pop moveto
+        /e0 c2aa def
+
+        .5 sq32 neg rarrowto % rlineto
+        /e1 c2aa def
+
+        2 index aload pop arrowto % lineto
+        /e2 c2aa def
+
+        .5 sq32 rarrowto % rlineto
+        /e3 c2aa def
+
+        3 index aload pop arrowto % lineto
+        /e4 c2aa def
+
+        -1 0 rarrowto % rlineto
+        /e5 c2aa def
+
+        closepath
+        strk exec
+    } if
+} def
+
+
+
+
+
+
+
+/reltilebig {
+    reltileleft
+    3 copy mark 4 1 roll
+
+    3 1 roll pop pop aload pop moveto
+    reltileright
+    mark
+    6 index 8 index vsub 7 index vadd aload pop
+    gsave
+      translate 0 0 moveto -120 rotate reltileleft
+      % tm tm tm
+    grestore
+    % pop ty ty ty
+    % pop
+    % tc tc tc
+} def
+
+/reltilebigcentered0 {
+    -5 sq3 neg rmoveto
+    reltilebig
+
+    10 index [-1 0] vadd
+
+    5 index [.5 sq32 neg] vadd
+
+    6 index [.5 sq32 neg] vadd
+    13 index [-1 0] vadd
+    vsub
+    60 vrot
+    13 index [-1 0] vadd
+    vadd
+
+    14 3 roll 11 {pop} repeat
+} def
+
+/doit {
+    %%%% HERE
+
+    10 dict begin
+
+    /drawenclosing false def
+    % /azure {{.2 setgray fill}} def
+    % /sky {{.2 setgray fill}} def
+    % /fillw {{.2 setgray fill}} def
+    % /grey  {{.2 setgray fill}} def
+
+    % /azure {{}} def
+    % /sky {{}} def
+    % /fillw {{}} def
+    % /grey  {{}} def
+
+    % /azure {fillw} def
+    % /sky {fillw} def
+    % /fillw {{}} def
+    % /grey  {fillw} def
+
+
+
+    -10 0 moveto
+
+    reltilebigcentered0
+
+    2 index [6 sq3] vadd
+    dup 5 1 roll                % c1 at tos
+    2 index 4 index vsub vadd   %
+    dup 6 1 roll                % c2 at tos
+    aload pop moveto
+    pop pop pop
+    reltilebigcentered0
+
+    2 index [6 sq3] vadd        % c1 again
+    1 index 3 index vsub
+    vadd
+    dup 7 1 roll                % c3 at tos
+    aload pop moveto
+    pop pop pop
+    gsave 120 rotate reltilebigcentered0 grestore
+    pop pop pop
+    3 copy
+    vcentroid
+    aload pop
+
+    % /azure {{}} def
+    % /sky {{}} def
+    % /fillw {{}} def
+    % /grey  {{}} def
+    % /strkk {strkr} def
+
+    gsave
+        translate               % @centroid of big
+
+        ebluepoints aload pop vcentroid
+        /bluecentroid exch def
+        gsave
+    %         1 -1 scale
+    %         -120 rotate
+    %         bluecentroid vneg aload pop moveto
+    %         reltilecore
+    %     grestore
+    % grestore
+
+    % end
+
+
+} def
+
+    % pop pop pop pop pop pop pop pop pop pop pop
+
+
+/ebluepath [
+    [0 0]
+    [ .5 sq32 neg]
+    [4.5 sq32 neg]
+    [5 0]
+    [3 sq3 dup add]
+    [2 sq3 dup add]
+] def
+
+/ebluerelpath [
+    [.5 sq32 neg]
+    [4 0]
+    [.5 sq32]
+    [-2 sq3 dup add]
+    [-1 0]
+] def
+
+/ebluepoints [
+    [0 0]
+    [4.5 sq32 neg]
+    [3 sq3 dup add]
+] def
+
+/ebluepoints2path {
+    ebluepath 1 get
+    ebluepath 0 get
+    vsub
+    dup
+    vmeasure                    % short-leg short-leg-length
+    ebluepath 2 get
+    ebluepath 0 get
+    vsub
+    dup
+    vmeasure                    % shleg shleglen ph phlen
+
+    ebluepath 0 get
+    efpoints 4 get
+    efpoints 0 get
+    vsub
+    -120 vrot
+    vadd                        % shleg shleglen ph phlen new-B0
+
+    ebluepath 0 get
+    ebluepath 2 get
+    ebluepath 0 get
+    vsub
+    dup vadd
+    vadd
+    efpoints 4 get
+    efpoints 0 get
+    vsub
+    vadd                        % shleg shleglen ph phlen new-B0 new-B2
+
+    dup                         % ... B0 B2 B2
+    2 index vsub                % ... B0 B2 B2-B0
+    % 10.8166542 long
+    % dup dup vmeasure            % ... B0 B2 B2-B0 B2-B0 |B2-B0|
+    % exch aload pop
+    % dup                         % ... B0 B2 B2-B0 B2-B0
+    % aload pop exch atan         % ... B0 B2 B2-B0 new-angle
+    % 120 add                     % ... B0 B2 B2-B0 new-angle+120
+    120 vrot                    % ... B0 B2 rot(B2-B0, 120)
+    1 index vadd                % shleg shleglen ph phlen new-B0 new-B2 new-B4
+
+    1 index 3 index
+    vsub vmeasure               % shleg shleglen ph phlen new-B0 new-B2 new-B4 newphlen
+    4 index                     % old pseudohypotenuse length
+    div                         % inflation factor
+                                % shleg shleglen ph phlen new-B0 new-B2 new-B4 ifactor
+
+
+    6 index                     % shleg shleglen ph phlen new-B0 new-B2 new-B4 ifactor shleglen
+    mul                         % shleg shleglen ph phlen new-B0 new-B2 new-B4 new-shlen
+    0 2 array astore            % shleg shleglen ph phlen new-B0 new-B2 new-B4 [new-shlen 0]
+
+    2 index 4 index vsub        % shleg shleglen ph phlen new-B0 new-B2 new-B4 [new-shlen 0] B2-B0
+    aload pop exch atan         % shleg shleglen ph phlen new-B0 new-B2 new-B4 [new-shlen 0] droop-angle
+    360 sub %%%
+    % droop angle is the angle between the segment B0B2
+    % (the new pseudohypotenuse) and the horizontal, -13.898 degrees
+
+    %% OK TO HERE
+
+    % Now let us figure the angle between the pseudohypotenuse and the short segment
+    % in the 'previous' enclosing
+    6 index                     % the pseudohypotenuse
+    9 index                     % the short leg
+    vdangle
+    add
+    vrot                        % the new short leg vector
+    dup
+
+    4 index vadd                % the new B1
+
+
+
+
+    sub
+
+
+    vrot
+
+} def
+
+
+
+/eppoints [
+    [ 0    0]
+    [-4    0]
+    [-3    sq3 neg]
+    [ 1    sq3 neg]
+] def
+/ewhitepoints eppoints def
+
+/eprelpath eppoints 0 vpathrel def
+/ewhiterelpath ewhitepoints 0 vpathrel def
+% [
+%     [-4 0]
+%     [1 sq3 neg]
+%     [4 0]
+% ]
+
+/egraypoints [
+    [ 0    0]
+    [ 2    sq3 2 mul]
+    [ 0    sq3 2 mul]
+    [-1.5  sq32]
+    [-1    0]
+] def
+
+/efpoints [
+    [ 0     0]
+    [-4     0]
+    [-3     sq3 neg]
+    [ 0     sq3 neg]
+    [ 0.5   sq32 neg]
+] def
+
+/efrelpath efpoints 0 vpathrel def
+
+/egrayrelpath egraypoints 0 vpathrel def
+% [
+%     [2 sq3 dup add]
+%     [-2 0]
+%     [-1.5 sq3 dup add sq32 sub neg]
+%     [.5 sq32 neg]
+% ]
+
+/etripoints [
+    [0 0]
+    [3 0]
+    [1.5 3 sq32 mul]
+] def
+
+/etrirelpath etripoints 0 vpathrel def
+
+
+
+% After reltilebig the stack contains PL1 PL2 PL3 -M- PR1 PR2 PR3 -M- PT1 PT2 PT2
+%
+% You will find centroid at offset [5, √3]
+/findcentroid {
+     4 index % PR3
+    11 index % PL1
+    vsub 60 vrot                % [2.99999928 3.46410203]
+    11 index vadd               % PT2 [1.99999905 2.92820358]
+    5 index
+    12 index
+    vcentroid
+} def
+
+/reltile-H {
+    reltilecore         % P1 P2 P3
+    drawenclosing {
+        2 index aload pop moveto
+        ebluerelpath
+        apath-rel-arrows
+    } if
+    pop pop pop
+} def
+
+/hat-tt hat-flipped 3 vpathrel def
+
+/reltile-T {
+    hat-tt strkk fillw apath-rel
+    drawenclosing {
+        etrirelpath
+        apath-rel-arrows
+    } if
+} def
+
+/reltile-P {                    % strokeproc fillproc
+    -1.5 0 rmoveto
+    hat-2b-left 2 index 2 index apath-rel
+    1.5 0 rmoveto
+    hat-2b-right 3 1 roll apath-rel
+    drawenclosing {
+        eprelpath
+        apath-rel-arrows
+    } if
+} def
+
+/hat-fl hat-flipped 3 vpathrel -60 vrotate def
+/hat-fr  hat-flipped 9  vpathrel def
+
+/reltile-F {                    % strokeproc fillproc
+    -4 0 rmoveto
+    hat-fl 2 index 2 index apath-rel
+    4 0 rmoveto
+    hat-fr 3 1 roll apath-rel
+    drawenclosing {
+        efrelpath
+        apath-rel-arrows
+    } if
+} def
+
+/reltile-1-L {
+    %% lower-left, tier-1
+    reltile-H                  % @r[0 0]
+    currentpoint
+    ebluepath dup
+    2 get
+    exch 0 get
+    vsub aload pop
+    rmoveto                     % @r[4.5 -√3/2]
+    strkk fillw reltile-P       % @r[4.5 -√3/2]
+    moveto
+    -120 rotate
+    strkk grey reltile-F
+    120 rotate
+} def
+
+/reltile-1-R {
+    %% lower-right tier-1
+    reltile-H                   % @r[0 0]
+    ebluepath dup
+    2 get
+    exch 0 get
+    vsub aload pop
+    rmoveto                     % @r[4.5 -√3/2]
+    strkk grey reltile-F
+    ebluepath 4 get
+    ebluepath 2 get
+    vsub
+    aload pop
+    rmoveto
+    120 rotate
+    strkk fillw reltile-P
+    -120 rotate
+} def
+
+
+/reltile-1-H {
+
+    % lower-left bigtile        % @r[0 0]
+    reltile-1-L                 % @r[0 0]
+
+    % lower-right bigtile       % @r[0 0]
+    ebluepath 2 get aload pop
+    rmoveto
+    reltile-1-R                 % @r[7.5 3√3/2]
+
+    %% upper bigtile            % @r[7.5 3√3/2]
+    ebluepath 4 get % [3 2√3]
+    ebluepath 2 get % [4.5 -√3/2]
+    vsub            % [-1.5 5√3/2]
+    aload pop
+    rmoveto                     % @r[6 4√3]
+    -120 rotate
+    reltile-1-L
+    120 rotate
+
+    ebluepath 4 get % [3 2√3]
+    dup vadd vneg
+    aload pop
+    rmoveto         % @r[0 0]
+
+    % return the six new bluepoints
+    ebluepath 0 get
+    efpoints 4 get
+    efpoints 0 get
+    vsub
+    -120 vrot
+    vadd                        % new point 0
+} def
+
+{
+
+    dup                 % P1 P2 P3 P3
+    aload pop           % P1 P2 P3 x3 y3
+    moveto              % P1 P2 P3
+    hat-2b-right strkk fillw apath-rel
+    hat-2b-right 11 advance-rel
+    hat-2b-left strkk fillw apath-rel
+    2 index             % P1 P2 P3 P1
+    aload pop           % P1 P2 P3 x1 y1
+    moveto
+    hat-2l-right strkk grey apath-rel
+    hat-2l-right 11 advance-rel
+    hat-2l-left strkk grey apath-rel
+                        % P1 P2 P3
+        dup aload pop moveto
+        ewhiterelpath
+        apath-rel-arrows
+        2 index aload pop moveto
+        egrayrelpath apath-rel-arrows
+
+} pop
+
+
+
+/reltileright {
+    reltilecore         % P1 P2 P3 (left(cyan) top(mag) right(yel))
+    dup                 % P1 P2 P3 P3
+    aload pop           % P1 P2 P3 x3 y3
+    moveto              % P1 P2 P3
+    hat-2b-right strkk grey apath-rel
+    hat-2b-right 11 advance-rel
+    hat-2b-left strkk grey apath-rel
+    1 index             % P1 P2 P3 P2
+    aload pop           % P1 P2 P3 x2 y2
+    moveto
+    hat-2r-left strkk fillw apath-rel
+    hat-2r-left 11 advance-rel
+    hat-2r-right strkk fillw apath-rel
+                        % P1 P2 P3
+
+
+
+    drawenclosing {
+        2 index aload pop moveto
+        ebluerelpath
+        apath-rel-arrows
+
+        % dup aload pop moveto
+        % ewhiterelpath
+        % apath-rel-arrows
+        % 2 index aload pop moveto
+%        egrayrelpath apath-rel-arrows
+
+        gsave
+        1 index aload pop
+        translate
+        120 rotate
+        0 0 moveto
+        ewhiterelpath
+        apath-rel-arrows
+        grestore
+        dup
+        %%180 vrot
+        aload pop
+        moveto
+        gsave
+        120 rotate
+        egrayrelpath
+        apath-rel-arrows
+        grestore
+
+    } if
+
+} def
+
+/reltileleft {
+    reltilecore         % P1 P2 P3
+    dup                 % P1 P2 P3 P3
+    aload pop           % P1 P2 P3 x3 y3
+    moveto              % P1 P2 P3
+    hat-2b-right strkk fillw apath-rel
+    hat-2b-right 11 advance-rel
+    hat-2b-left strkk fillw apath-rel
+    2 index             % P1 P2 P3 P1
+    aload pop           % P1 P2 P3 x1 y1
+    moveto
+    hat-2l-right strkk grey apath-rel
+    hat-2l-right 11 advance-rel
+    hat-2l-left strkk grey apath-rel
+                        % P1 P2 P3
+    drawenclosing {
+        2 index aload pop moveto
+        ebluerelpath
+        apath-rel-arrows
+        dup aload pop moveto
+        ewhiterelpath
+        apath-rel-arrows
+        2 index aload pop moveto
+        egrayrelpath apath-rel-arrows
+    } if
+} def
+{
+
+    hat-ww-right 3 advance-rel
+    c2aa                % [x1 y1] [x2 y2]
+    dup                 % [x1 y1] [x2 y2] [x2 y2]
+    2 index             % [x1 y1] [x2 y2] [x2 y2] [x1 y1]
+    vsub                % [x1 y1] [x2 y2] ([x2 y2]-[x1 y1])
+    60 vrot             % [x1 y1] [x2 y2] ([x2 y2]-[x1 y1])r
+    2 index vadd        % [x1 y1] [x2 y2] [x3 y3]
+    3 array astore      % [[x1 y1] [x2 y2] [x3 y3]]
+} pop
+
+
+% currentpoint 2 array astore ty
+
+
+%%%%% grestore
+
+/bbtxxxx {
+    pointgrid
+    gsave 5 6 translate true leftbigtile grestore
+
+    gsave 2 -6 translate
+
+    /hat-qq-left hat-flipped -120 vrotate def
+    /hat-qq-top
+        hat-flipped
+        120 vrotate
+        dup 8 get vneg vtranslate
+        hat-qq-left 4 get vtranslate
+        def
+
+
+
+        gsave newpath -2 6 moveto 0 -12 rlineto 10 0 rlineto 0 12 rlineto closepath 1 setgray fill grestore
+        [0 0] tt
+
+        % draw q-left
+        0 0 moveto
+        hat-flipped 0 vpathrel
+        -120 vrotate
+        pstack
+        strkm filly apath-rel
+
+
+        % move to corner of q-left
+        0 0 moveto
+        hat-flipped -120 vrotate 4 get aload pop
+        2 copy
+
+
+        rmoveto
+        gsave currentpoint 2 array astore tm grestore
+
+        hat-flipped 8 vpathrel
+        120 vrotate
+        pstack
+        strkc fillm apath-rel
+        moveto
+
+        gsave currentpoint 2 array astore tm grestore
+        hat-flipped 120 vrotate 3 get aload pop
+        rmoveto
+        gsave currentpoint 2 array astore tc grestore
+
+
+    grestore
+
+
+} def
+
+
+
+
+
+
+
+% false grey gtile
+
+% supertile
+% gsave
+% -1.5 -3.5 sq32 sub translate 120 rotate supertile
+% -1.5 -3.5 sq32 sub translate 120 rotate supertile
+% grestore
+
+% hat-central strkk azure apath   %
+
+% Center FINAL
+
+% hat-left strkk {} apath
+% hat-left 0 get
+% gsave aload pop translate targetmark grestore
+
+% hat-top 8 get
+
+% dup
+%  strkc {} apath
+% gsave  8 get aload pop translate targetmark grestore
+
+% /hat-right {
+%     hat-central vflip
+%     -60 vrotate
+%     hat-central point-Og get
+%     vtranslate
+% } def
+
+% /hat-left {
+%     hat-central vflip
+%     180 vrotate
+%     dup
+%     point-Mg get vneg
+%     hat-central point-M get
+%     vadd
+%     vtranslate
+% } def
+
+
+/tile0 {
+    hat-central strkk azure apath
+    hat-right strkk fillm apath
+    hat-left strkk filly apath
+    hat-bottom strkk fillc apath
+    enclosing-triangle {} {} apath
+    % gsave aload pop translate targetmark grestore
+    pop
+} def
+
+/tilest {
+    hat-central strkk {} apath
+    hat-right strkm {} apath
+    hat-left strky {} apath
+    hat-bottom strkc {} apath
+    enclosing-triangle {} {} apath
+    % gsave aload pop translate targetmark grestore
+    pop
+} def
+
+% /hat-cyan hat-bottom def
+% /hat-yellow hat-left def
+% /hat-magenta hat-right def
+
+
+
+/qtile0 {
+    hat-central strkk azure apath
+    hat-right strkk sky apath
+    hat-left strkk sky apath
+    hat-bottom strkk sky apath
+    enclosing-triangle
+    exch {strk} {{}} ifelse {} apath
+    % gsave aload pop translate targetmark grestore
+} def
+
+
+
+
+/supertile {
+    gsave
+    false qtile
+    -1.5 sq32 3 mul translate
+    false dtile targetmark
+    grestore
+} def
+
+
+% -2 -3 translate 120 rotate supertile
+
+% -1.5 -2.5 translate 120 rotate supertile
+
+
+
+
+/FF [
+    [0 0]
+    [1 0]
+    [1 1]
+    [2 1]
+    [2 2]
+    [1 2]
+    [1 3]
+    [2 3]
+    [2 4]
+    [0 4]
+] def
+
+
+% gsave
+% FF strk {} apath
+% grestore
+
+% gsave
+% FF 45 vrotate vflip   strkr {} apath
+% [1 1] vmirror 45 vrot aload pop translate targetmark
+% grestore
+
+
+% gsave
+
+% grestore
+
+% targetmark

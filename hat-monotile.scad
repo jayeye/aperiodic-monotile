@@ -17,11 +17,12 @@ points = [
     d,
     -1/2 * u
  ];
- 
+
  module tile() {
      linear_extrude(4) {
          scale(10) translate(-r) polygon(points);
      }
  }
- 
+
  tile();
+//echo(points);

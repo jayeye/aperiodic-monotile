@@ -1,0 +1,58 @@
+%!
+
+/s 3 sqrt 2 div def             % sin(60)
+/c .5 def                       % cos(60)
+/t s c div def                  % tan(60)
+
+% /r [1 0] def
+% /u [c s] def
+% /d [c s neg] def
+
+% /vadd {
+
+% /pp [
+%     [0 0]
+
+/a 20 def
+/b a t mul def
+
+400 dup translate
+
+/Helvetica findfont 14 scalefont setfont
+0 0 moveto (o) show
+
+0 0
+
+newpath
+moveto
+b 0 rlineto
+90 neg rotate
+a 0 rlineto
+60 rotate
+a 0 rlineto
+90 neg rotate
+b 0 rlineto
+60 neg rotate
+b 0 rlineto
+90 rotate
+a 0 rlineto
+60 neg rotate
+a 0 rlineto
+90 neg rotate
+b 0 rlineto
+60 neg rotate
+b 0 rlineto
+90 rotate
+a 0 rlineto
+60 neg rotate
+a 0 rlineto
+a 0 rlineto
+60 neg rotate
+a 0 rlineto
+90 neg rotate
+b 0 rlineto
+60 rotate
+currentpoint
+closepath
+stroke
+showpage

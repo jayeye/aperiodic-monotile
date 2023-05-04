@@ -1,0 +1,200 @@
+/p { pstack } def
+
+/kk {
+                        % M N
+    dup length          % M N len(N)
+    2 index length add  % M N len(N)+len(M)
+    string              % M N (M+N-long-string)
+    dup dup             % M N (M+N-long-string) (M+N-long-string) (M+N-long-string)
+    4 index             % M N (M+N-long-string) (M+N-long-string) (M+N-long-string) M
+    0 exch putinterval  % M N (M...) (M...)
+    4 -1 roll length    % N (M...) (M...) len(M)
+    4 -1 roll           % (M...) (M...) len(M) N
+    putinterval
+} def
+
+/m-1 { (This) ( ) kk (is ) kk (M) kk } def
+/n-1 { (And) ( ) kk (this ) kk (is ) kk (N) kk} def
+
+
+
+/mksym {                        % string-prefix number >>> symbol
+    dup
+    log cvi 1 add
+    string cvs                  % spfx numstr
+    dup length                  % spfx numstr numlen
+    2 index length add string   % spfx numstr empty-string
+    dup dup                     % spfx numstr empty-string empty-string empty-string
+    4 index 0 exch
+    putinterval                 % numstr empty-string stringwithprefix
+    4 -1 roll length
+    4 -1 roll putinterval
+    cvn
+} def
+
+/deepcopy {
+    dup length dup array        % oobj olen arrr
+    3 1 roll                    % arrr oobj olen
+    1 sub 0 exch 1 exch {       % arrr oobj { iota
+        2 copy get              % arrr oobj iota oobj[iota]
+        dup type                % arrr oobj iota oobj[iota] type(oobj[iota])
+        /arraytype eq {         % arrr oobj iota oobj[iota]
+            deepcopy
+        } if
+
+        3 index                 % arrr oobj iota oobj[iota] arrr
+        3 1 roll
+        put                     % arrr oobj
+
+        % {                     % arrr oobj iota oobj[iota]
+        %     3 index             % arrr oobj iota oobj[iota] arrr
+        %     3 1 roll
+        %     put                 % arrr oobj
+        % } ifelse
+    } for
+    xcheck {                    % arrr
+        cvx
+    } if
+} def
+
+
+/mkleveldict {                  % level >>> dict
+    dup /next-level exch def
+    1 sub /this-level exch def
+    <<
+        /M (M-level-) this-level mksym cvx
+        /N (N-level-) this-level mksym cvx
+    >>
+} def
+
+
+/rplc {                         % procedure >>> procedure'
+    deepcopy                    % proc
+
+    dd begin
+    dup length                  % proc len(proc)
+    1 sub 0 exch 1 exch {       % proc 0 1 len(proc)-1
+                                % proc iota
+        2 copy 2 copy get dup   % proc iota proc iota proc[iota] proc[iota]
+        type /arraytype eq {    % proc iota proc iota proc[iota]
+            rplc                % proc iota proc iota proc[iota]'
+            put                 % proc iota
+        } {
+            pop pop pop
+        } ifelse
+
+        2 copy 2 copy get       % proc iota proc iota proc[iota]
+        dup dd exch known {     % proc iota proc iota proc[iota]
+            dd exch get         % proc iota proc iota replacement
+            put                 % proc' iota
+        } {                     % proc iota proc iota
+            pop pop pop             % proc iota
+        } ifelse
+
+        % 2 copy 2 copy get
+        % /N cvx eq {
+        %     (N-level-) this-level mksym cvx
+        %     put
+        % } {
+        %     pop pop
+        % } ifelse
+        pop
+    } for
+    end
+} def
+
+
+/rplc-1 {                         % procedure >>> procedure'
+    dup length 1 sub 0 exch 1 exch { % proc iota
+
+        2 copy get              % proc iota proc iota proc[iota]
+        type /arraytype eq {    % proc iota proc iota
+            2 copy get rplc     % proc iota proc'
+            pop
+        } if
+
+        2 copy 2 copy get       % proc iota proc iota proc[iota]
+        dup /M cvx eq {         % proc iota proc iota proc[iota]
+            pop                 % proc iota proc iota
+            (M-level-) this-level mksym cvx % proc iota proc iota M-level-{n-1}
+            put                 % proc' iota
+        } {                     % proc iota proc iota proc[iota]
+            pop pop pop         % proc iota
+        } ifelse
+
+        2 copy 2 copy get       % proc iota proc iota proc[iota]
+        dup /N cvx eq {         % proc iota proc iota proc[iota]
+            pop                 % proc iota proc iota
+            (N-level-) this-level mksym cvx % proc iota proc iota M-level-{n-1}
+            put                 % proc' iota
+        } {                     % proc iota proc iota proc[iota]
+            pop pop pop         % proc iota
+        } ifelse
+
+
+        pop
+    } for
+} def
+
+/nextiter {
+    dup
+    1 eq {
+        pop
+        /M-level-1 //m-1 def
+        /N-level-1 //n-1 def
+    } {
+        mkleveldict /dd exch def
+
+        /next-M { (M-level-) next-level mksym } def
+        /next-N { (N-level-) next-level mksym } def
+
+        next-M {
+            M N kk (-) kk 3 { N kk } repeat /M kk
+        } rplc def
+        next-N {
+            N N kk M kk M kk (-) kk
+        } rplc def
+    } ifelse
+} def
+
+% {M N kk (-) kk 3 {N kk} repeat M kk}
+
+
+%
+% {M-level-1 N-level-1 kk (-) kk 3 {N-level-1 kk} repeat M-level-1 kk} exec
+% (This is MAnd this is N-And this is NAnd this is NAnd this is NThis is M)
+
+
+/nextiter-1 {
+    dup
+    1 eq {
+        pop
+        /M-level-1 //m-1 def
+        /N-level-1 //n-1 def
+    } {
+        dup /next-level exch def
+        1 sub /this-level exch def
+
+        /M { (M-level-) this-level mksym load exec } def
+        /N { (N-level-) this-level mksym load exec } def
+
+        /next-M { (M-level-) next-level mksym } def
+        /next-N { (N-level-) next-level mksym } def
+
+        next-M {
+            M N kk (-) kk 3 { N kk } repeat M kk
+        } pstack rplc def
+        next-N {
+            N N kk M kk M kk (-) kk
+        } rplc def
+    } ifelse
+} def
+
+1 nextiter
+
+% 2 nextiter
+
+
+% clear //M-level-2 % rplc
+% //N-level-2 rplc
+pstack

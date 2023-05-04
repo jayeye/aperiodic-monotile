@@ -1,0 +1,337 @@
+%!
+
+/half .5 def
+/sq32 3 sqrt 2 div def
+
+/vadd {                 % [x1 y1] [x2 y2] >>> [x1+x2 y1+y2]
+    aload pop           % [x1 y1] x2 y2
+    3 -1 roll           % x2 y2 [x1 y1]
+    aload pop           % x2 y2 x1 y1
+    3 -1 roll           % x2 x1 y1 y2
+    add                 % x2 x1 y1+y2
+    3 1 roll            % y1+y2 x2 x1
+    add                 % y1+y2 x2+x1
+    exch                % x2+x1 y1+y2
+    2 array astore      % [x1+x2 y1+y2]
+} def
+
+/vneg {                 % [x y] >>> [-x -y]
+    aload pop
+    neg exch neg exch
+    2 array astore
+} def
+
+/vmul {                 % [x y] m
+    exch                % m [x y]
+    aload pop           % m x y
+    2 index             % m x y m
+    mul                 % m x y*m
+    3 1 roll            % y*m m x
+    mul                 % y*m x*m
+    exch
+    2 array astore
+} def
+
+/hmirror {
+    aload pop
+    neg
+    2 array astore
+} def
+
+
+/vmirror {
+    aload pop
+    exch neg exch
+    2 array astore
+} def
+
+/opposite {
+    hmirror vmirror
+} def
+
+/midpoint {
+    vadd
+    .5 vmul
+} def
+
+
+
+%
+%                     E------M------D
+%                    /               \
+%                   /                 \
+%                  N                   L
+%                 /                     \
+%                /                       \
+%               F            O            C
+%                \                       /   E------M------D
+%                 \        "blue"       /   /               \
+%                  P                   K   /                 \
+%                   \                 /   N                   L
+%                    \               /   /                     \
+%                     A------J------B   /                       \
+%                                      F            O            C
+%                     E------M------D   \                       /
+%                    /               \   \       "green"       /
+%                   /                 \   P                   K
+%                  N                   L   \                 /
+%                 /                     \   \               /
+%                /                       \   A------J------B
+%               F            O            C
+%                \                       /
+%                 \        "red"        /
+%                  P                   K
+%                   \                 /
+%                    \               /
+%                     A------J------B
+%
+%
+%   O: (   0,     0)
+%   A: (-1/2, -sq32)
+%   B: ( 1/2, -sq32)
+%   C: (   1,     0)
+%   D: ( 1/2,  sq32)
+%   E: (-1/2,  sq32)
+%   F: (  -1,     0)
+%
+
+% "points" functions push xy coordinates to the stack
+/O [ 0 0 ] def
+/A [ half neg sq32 neg ] def
+/B A vmirror def
+/C [ 1 0 ] def
+/D A opposite def
+/E A hmirror def
+/F C vmirror def
+
+/J A B midpoint def
+/K B C midpoint def
+/L C D midpoint def
+/M D E midpoint def
+/N E F midpoint def
+/P F A midpoint def
+
+
+
+
+/red2blue {
+    % add the vector AE
+    E A vneg vadd vadd
+} def
+
+/red2green {
+    % add the vector AC
+    C A vneg vadd vadd
+} def
+
+
+/opposite2 {
+    neg exch neg exch
+} def
+
+
+
+/vadd2 {                % x1 y1 x2 y2
+    exch                % x1 y1 y2 x2
+    4 -1 roll           % y1 y2 x2 x1
+    add                 % y1 y2 x1+x2
+    3 1 roll            % x1+x2 y1 y2
+    add                 % x1+x2 y1+y2
+} def
+
+/vneg2 {
+    neg exch neg exch
+} def
+
+/vmul2 {                 % x y m
+    dup                 % x y m m
+    4 -1 roll           % y m m x
+    mul                 % y m x*m
+    3 1 roll            % x*m y m
+    mul                 % x*m y*m
+} def
+
+/hmirror2 {
+    neg
+} def
+
+/vmirror2 {
+    exch neg exch
+} def
+
+/midpoint3 {    % [x1 y1] [x2 y2]
+    exch        % x1 y1 y2 x2
+    4 -1 roll   % y1 y2 x2 x1
+    add 2 div   % y1 y2 (x2+x1)/2
+    3 1 roll    % (x2+x1)/2 y1 y2
+    add 2 div   % (x2+x1)/2 (y1+y2)/2
+} def
+
+
+/midpoint2 {    % x1 y1 x2 y2
+    exch        % x1 y1 y2 x2
+    4 -1 roll   % y1 y2 x2 x1
+    add 2 div   % y1 y2 (x2+x1)/2
+    3 1 roll    % (x2+x1)/2 y1 y2
+    add 2 div   % (x2+x1)/2 (y1+y2)/2
+} def
+
+/hexagon {
+  gsave
+    .5 setgray
+    .005 setlinewidth
+    newpath
+      O moveto J lineto
+      O moveto K lineto
+      O moveto L lineto
+      O moveto M lineto
+      O moveto N lineto
+      O moveto P lineto
+    closepath stroke
+    .02 setlinewidth
+    newpath
+      A moveto
+      B lineto
+      C lineto
+      D lineto
+      E lineto
+      F lineto
+    closepath
+    stroke
+  grestore
+} def
+
+/apath {
+    gsave
+    newpath
+    dup 0 get aload pop moveto
+    {
+        aload pop lineto
+    } forall
+    closepath
+    %gsave fill grestore
+    stroke
+    grestore
+} def
+
+
+50.8 dup add dup scale
+
+3 dup translate
+
+/hat {
+    gsave
+    .02 setlinewidth
+
+    [
+        P
+        O
+        K
+        C
+        J red2green
+        O red2green
+        N red2green
+        C red2blue
+        L red2blue
+        O red2blue
+        J red2blue
+        E
+        F
+    ] apath
+    grestore
+} def
+
+/hat2 {
+    gsave
+    .02 setlinewidth
+     newpath
+     P aload pop moveto
+     O aload pop lineto
+     K aload pop lineto
+     C aload pop lineto
+     J red2green aload pop lineto
+     O red2green aload pop lineto
+     N red2green aload pop lineto
+     C red2blue aload pop lineto
+     L red2blue aload pop lineto
+     O red2blue aload pop lineto
+     J red2blue aload pop lineto
+     E aload pop lineto
+     F aload pop lineto
+     closepath
+     stroke
+     grestore
+} def
+
+
+
+% /translate2 {
+%     dup add exch dup add exch
+%     translate
+% } def
+
+% gsave J translate2 hexagon grestore
+% gsave K translate2 hexagon grestore
+% gsave L translate2 hexagon grestore
+% gsave M translate2 hexagon grestore
+% gsave N translate2 hexagon grestore
+% gsave P translate2 hexagon grestore
+
+ hat
+
+% showpage
+
+
+% /hexagon2 {
+%   gsave
+%     % .5 setgray
+%     .02 setlinewidth
+%     newpath
+%       0 sq32 neg moveto 0 sq32 lineto
+%       -.75 sq32 2 div moveto .75 sq32 -2 div lineto
+%       .75 sq32 2 div moveto -.75 sq32 -2 div lineto
+%     closepath
+%     stroke
+%     newpath
+%       .02 setlinewidth
+%       .5 sq32 moveto
+%       1 0 lineto
+%       .5 sq32 neg lineto
+%       -.5 sq32 neg lineto
+%       -1 0 lineto
+%       -.5 sq32 lineto
+%     closepath
+%     stroke
+%   grestore
+% } def
+
+
+
+% 25.4 dup scale
+
+% % hexagon
+% % /Helvetica findfont .4 scalefont setfont
+% % .5 sq32 moveto (L) show
+
+% gsave
+%   10 {
+%     gsave
+%       20 {
+%         0 0 moveto hexagon
+%         0 sq32 dup add translate
+%       } repeat
+%     grestore
+
+%     gsave
+%       1.5 sq32 translate
+%       20 {
+%         0 0 moveto hexagon
+%         0 sq32 dup add translate
+%       } repeat
+%     grestore
+
+%     3 0 translate
+%   } repeat
+% grestore
+
+% showpage

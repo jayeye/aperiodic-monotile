@@ -1,0 +1,46 @@
+gsave
+tile-H-encloser-points-2 0 get aload pop translate tile-H-2
+grestore
+
+
+gsave
+tile-H-encloser-points-2 dup 0 get exch dup 2 get exch 0 get vsub vadd aload pop translate tile-H-2
+grestore
+
+gsave
+tile-H-encloser-points-2 dup 0 get exch dup 4 get exch 0 get vsub dup vadd vadd aload pop translate -120 rotate tile-H-2
+grestore
+
+gsave
+tile-H-encloser-points-2 dup dup 2 get exch 0 get vsub exch dup 4 get exch tile-H-encloser-2 0 get vsub vadd tile-F-encloser-points-2 dup 2 get exch 1 get vsub 120 vrot vadd aload pop translate 180 rotate tile-T-2
+grestore
+
+gsave
+3
+{
+    tile-H-encloser-points-2 dup 2 get exch 0 get vsub aload pop translate
+
+    gsave
+    tile-H-encloser-points-2 dup 2 get exch 0 get vsub tile-P-encloser-points-2 dup 0 get exch 2 get vsub vadd aload pop translate tile-F-2
+    grestore
+
+    tile-H-encloser-points-2 dup 2 get exch 0 get vsub tile-H-encloser-points-2 dup 4 get exch 2 get vsub dup vadd vadd aload pop translate -120 rotate
+
+}
+repeat
+grestore
+
+gsave
+2 {
+    tile-H-encloser-points-2 dup 2 get exch 0 get vsub aload pop translate
+    gsave
+    tile-P-encloser-points-2 dup 0 get exch 2 get vsub aload pop translate tile-P-2
+    grestore
+    tile-H-encloser-points-2 dup 2 get exch 0 get vsub tile-H-encloser-points-2 dup 4 get exch 2 get vsub dup vadd vadd aload pop translate -120 rotate
+}
+repeat
+tile-H-encloser-points-2 dup 2 get exch 0 get vsub aload pop translate
+    gsave
+    180 rotate tile-P-2
+    grestore
+grestore

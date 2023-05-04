@@ -1,0 +1,69 @@
+%!
+
+% Effective Jan 2021, this code has been moved
+% to   https://github.com/jdaw1/placemat/   from
+% www.jdawiseman.com/papers/placemat/placemat.html
+
+
+/Texts [
+	(Effective Jan 2021, this code has been moved)
+	(to   https://github.com/jdaw1/placemat/   from)
+	(www.jdawiseman.com/papers/placemat/placemat.html)
+] def
+
+() = Texts {=} forall () =
+
+/pdfmark where {pop}
+{
+	/globaldict where {pop globaldict} {userdict} ifelse
+	/pdfmark /cleartomark load put
+} ifelse
+
+
+/TrebuchetMS-Bold 14 selectfont
+
+0  1  Texts length 1 sub
+{
+	dup  Texts length 1 sub exch sub  18 mul 36 add  36 exch moveto
+	Texts exch get  show
+} for
+
+/RequireCompliantOutput  /currentdistillerparams where {
+	pop currentdistillerparams dup /CheckCompliance 2 copy known 
+		{get false exch {/None ne {pop true exit} if} forall} {pop pop false} ifelse
+	exch dup /PDFX1aCheck 2 copy known {get} {pop pop false} ifelse
+	exch      /PDFX3Check 2 copy known {get} {pop pop false} ifelse 
+	or or
+} {false} ifelse  def  % /RequireCompliantOutput
+
+RequireCompliantOutput not
+{
+	mark
+		/Rect [ 
+			36
+			33
+			36  0 Texts {stringwidth pop 2 copy lt {exch} if pop} forall  add
+			30  Texts length 18 mul add
+		] 
+		/Action << /Subtype /URI /URI (https://github.com/jdaw1/placemat/) >>
+		/Border [0 0 0]
+		/Subtype /Link /ANN 
+	pdfmark
+
+	2 {
+		% Seemingly doesn't work if only once
+		mark
+			/Title (See GitHub)
+			/Action <<
+				/Subtype /URI
+				/URI (https://github.com/jdaw1/placemat/)
+			>>
+			/Count 0
+			/F 0
+		/OUT pdfmark
+	} repeat  % 2
+} if  % RequireCompliantOutput not
+
+showpage
+
+(+ pstack) = pstack (- pstack) =

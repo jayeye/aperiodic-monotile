@@ -1,0 +1,1474 @@
+%!
+
+% Reference: https://arxiv.org/pdf/2303.10798.pdf
+
+% initializations; remove for production
+
+/scalefactor 20 def
+/inches { 72 mul } def
+
+/tt { gsave newpath aload pop 4 scalefactor div 0 360 arc fill grestore } def
+/tc { gsave 1 0 0 0 setcmykcolor tt grestore } def
+/tm { gsave 0 1 0 0 setcmykcolor tt grestore } def
+/ty { gsave 0 0 1 0 setcmykcolor tt grestore } def
+
+/tr { gsave 1 0 0 setrgbcolor tt grestore } def
+/tg { gsave 0 1 0 setrgbcolor tt grestore } def
+/tb { gsave 0 0 1 setrgbcolor tt grestore } def
+
+/pt { gsave newpath aload pop .05 0 360 arc fill grestore } def
+/pr { gsave 1 0 0 setrgbcolor pt grestore } def
+/pg { gsave 0 1 0 setrgbcolor pt grestore } def
+/pb { gsave 0 0 1 setrgbcolor pt grestore } def
+
+/te {
+    gsave
+        aload pop translate
+        newpath 0 0 4 scalefactor div 0 360 arc closepath
+        0 setgray fill
+        newpath 0 0 3 scalefactor div 0 360 arc closepath
+        0 .5 0 0 setcmykcolor fill
+    grestore
+} def
+
+/p {pstack}def
+
+/pointgrid {
+    -11 1 11 {
+        -9 1 9 {
+            1 index 2 array astore pg
+        } for
+        0 exch 2 array astore pr
+    } for
+    -9 1 9 {
+        0 2 array astore pr
+    } for
+} def
+
+/cls {
+    grestore
+
+    gsave
+    newpath
+    0 0 moveto 8.5 inches 0 rlineto 0 11 inches rlineto -8.5 inches 0 rlineto
+    closepath
+    1 setgray fill
+    grestore
+
+    gsave
+    1 inches 6 inches translate
+    scalefactor dup scale
+    /HelveticaBold findfont 18 scalefactor div scalefont setfont
+    pointgrid
+} def
+
+cls
+
+
+% Some convenient 2d-vector operations
+
+/vadd {                 % [x1 y1] [x2 y2] >>> [x1+x2 y1+y2]
+    aload pop           % [x1 y1] x2 y2
+    3 -1 roll           % x2 y2 [x1 y1]
+    aload pop           % x2 y2 x1 y1
+    3 -1 roll           % x2 x1 y1 y2
+    add                 % x2 x1 y1+y2
+    3 1 roll            % y1+y2 x2 x1
+    add                 % y1+y2 x2+x1
+    exch                % x2+x1 y1+y2
+    2 array astore      % [x1+x2 y1+y2]
+} def
+
+/vneg {                 % [x y] >>> [-x -y]
+    aload pop
+    neg exch neg exch
+    2 array astore
+} def
+
+/vsub {                 % [x1 y1] [x2 y2] >>> [x1-x2 y1-y2]
+    vneg
+    vadd
+} def
+
+/vmul {                 % [x y] m >>> [x*m y*m]
+    exch aload pop      % m x y
+    2 index             % m x y m
+    mul                 % m x y*m
+    3 1 roll            % y*m m x
+    mul                 % y*m x*m
+    exch
+    2 array astore
+} def
+
+/vmidpoint {             % [x1 y1] [x2 y2] >>> [(x1+x2)/2 (y1+y2)/2]
+    vadd
+    .5 vmul
+} def
+
+/vmeasure {             % [x y] >>> sqrt(x^2+y^2)
+    aload pop           % x y
+    dup mul             % x y*y
+    exch dup mul        % y*y x*x
+    add                 % x*x+y*y
+    sqrt                % sqrt(x^2+y^2)
+} def
+
+/vrot {                 % [x y] r >>> [xr yr]
+    dup cos             % [x y] r cos(r)
+    exch sin            % [x y] cos(r) sin(r)
+    3 -1 roll           % cos(r) sin(r) [x y]
+    dup                 % cos(r) sin(r) [x y] [x y]
+    aload pop           % cos(r) sin(r) [x y] x y
+    3 index             % cos(r) sin(r) [x y] x y sin(r)
+    neg                 % cos(r) sin(r) [x y] x y -sin(r)
+    mul                 % cos(r) sin(r) [x y] x -y*sin(r)
+    exch                % cos(r) sin(r) [x y] -y*sin(r) x
+    4 index             % cos(r) sin(r) [x y] -y*sin(r) x cos(r)
+    mul                 % cos(r) sin(r) [x y] -y*sin(r) x*cos(r)
+    add                 % cos(r) sin(r) [x y] x*cos(r)-y*sin(r)  // the new X
+    exch aload pop      % cos(r) sin(r) x*cos(r)-y*sin(r) x y
+    5 -1 roll           % sin(r) x*cos(r)-y*sin(r) x y cos(r)
+    mul                 % sin(r) x*cos(r)-y*sin(r) x y*cos(r)
+    exch                % sin(r) x*cos(r)-y*sin(r) y*cos(r) x
+    4 -1 roll           % x*cos(r)-y*sin(r) y*cos(r) x sin(r)
+    mul                 % x*cos(r)y*sin(r) y*cos(r) x*sin(r)
+    add                 % x*cos(r)-y*sin(r) x*sin(r)+y*cos(r)
+    2 array astore
+} def
+
+
+% % Intersect line segment [[x1 y1] [x2 y2]] with [[x3 y3] [x4 y4]]
+
+/vintersect {        % [x1 y1] [x2 y2] [x3 y3] [x4 y4] >>> ---
+    11 dict begin
+    aload pop /y4 exch def /x4 exch def
+    aload pop /y3 exch def /x3 exch def
+    aload pop /y2 exch def /x2 exch def
+    aload pop /y1 exch def /x1 exch def
+
+    /denominator
+      x1 x2 sub y3 y4 sub mul
+      y1 y2 sub x3 x4 sub mul sub
+    def
+
+      x1 y2 mul y1 x2 mul sub x3 x4 sub mul
+      x3 y4 mul y3 x4 mul sub x1 x2 sub mul sub
+      denominator div
+
+      x1 y2 mul y1 x2 mul sub y3 y4 sub mul
+      x3 y4 mul y3 x4 mul sub y1 y2 sub mul sub
+      denominator div
+      2 array astore
+      end
+} def
+
+/vdangle {                      % [x1 y1] [x2 y2] >>> angle-between-vectors
+    aload pop exch atan         % [x1 y1] a2
+    exch aload pop exch atan    % a2 a1
+    sub                         % a2-a1
+} def
+
+
+% symmetries
+
+/hmirror {              % [x y] >>> [x -y]
+    aload pop
+    neg
+    2 array astore
+} def
+
+/vmirror {              % [x y] >>> [-x y]
+    aload pop
+    exch neg exch
+    2 array astore
+} def
+
+/vopposite {            % [x y] >>> [-x -y]
+    vneg
+} def
+
+% translate an array of vectors
+/vtranslate {              % [[x1 y1] [x2 y2] ...] [x y] >>> [[x1t y1t] [x2t y2t] ...]
+    1 dict begin
+    /trans exch def
+    mark exch
+    {
+        trans vadd
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% rotate an array of vectors
+/vrotate {              % [[x1 y1] [x2 y2] ...] r >>> [[x1r y1r] [x2r y2r] ...]
+    1 dict begin
+    /angle exch def
+    mark exch
+    {
+        angle vrot
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% flip left-right an array of vectors
+/vflip {                % [[x1 y1] [x2 y2] ...] >>> [[-x1 y1] [-x2 y2] ...]
+    mark exch
+    {
+        vmirror
+    } forall
+    counttomark
+    array astore
+    exch pop
+} def
+
+% The raw tiles
+
+%
+%
+%                     Er-----Mr-----Dr
+%                    /               \
+%                   /                 \
+%                  Nr                 [8]
+%                 /                     \
+%                /                       \
+%               Fr          [9]          [7]----[6]-----Dg
+%                \                       /               \
+%                 \                     /                 \
+%                  Pr                  Ng                  Lg
+%                   \                 /                     \
+%                    \               /                       \
+%                   [11]----[10]----D           [5]           Cg
+%                    /               \                       /
+%                   /                 \                     /
+%                [12]                 [1]                 [4]
+%                 /                     \                 /
+%                /                       \               /
+%               F           [0]          [2]-----Jg----[3]
+%                \                       /
+%                 \      "black"        /
+%                  P                   K
+%                   \                 /
+%                    \               /
+%                     A------J------B
+
+
+/one 1 def
+/half .5 one mul def
+/sq3 3 sqrt one mul def
+/sq32 sq3 2 div def
+
+
+
+% Points on hexagon
+
+15 dict begin
+    % local variables!
+    /O [ 0 0 ] def
+
+    /A [ half neg sq32 neg ] def
+    /B A vmirror def
+    /C [ one 0 ] def
+    /D A vopposite def
+    /E A hmirror def
+    /F C vmirror def
+
+    /J A B vmidpoint def
+    /K B C vmidpoint def
+    /L C D vmidpoint def
+    /M D E vmidpoint def
+    /N E F vmidpoint def
+    /P F A vmidpoint def
+
+    /EA E A vsub def
+    /CA C A vsub def
+
+    [
+        O
+        L
+        C
+        B CA vadd
+        K CA vadd
+        O CA vadd
+        M CA vadd
+        E CA vadd
+        L EA vadd
+        O EA vadd
+        M
+        E
+        N
+    ]
+end
+
+/hat-upright exch def
+/hat-flipped hat-upright vflip def
+
+% colors
+
+/sky {
+    { .6 .8 .9 setrgbcolor fill }
+} def
+
+/sstrk {
+    { 1 setlinejoin .25 setlinewidth 0 1 0 0 setcmykcolor stroke }
+} def
+
+/strk {
+    { 1 setlinejoin .075 setlinewidth 0 0 0 setrgbcolor stroke }
+} def
+
+/strkk {
+    { 1 setlinejoin .025 setlinewidth 0 setgray stroke }
+} def
+
+/azure {
+    { 0 .55 .9 setrgbcolor fill }
+} def
+
+/grey {
+    { .75 setgray fill }
+} def
+
+/white {
+    { 1 setgray fill }
+} def
+
+/cky {
+    { .8 .9 .95 setrgbcolor fill }
+} def
+
+
+% Metatiles
+
+% TODO(ji): decide where (0, 0) lies
+
+
+/c2aa {
+    currentpoint 2 array astore
+} def
+
+/hpath {                        % strokeproc fillproc hatarray >>> -
+    gsave
+        newpath
+        dup 0 get aload pop moveto          % moveto the CAR
+        dup length 1 sub 1 exch getinterval % lineto the CDR
+        {
+            aload pop lineto
+        } forall
+        closepath
+        gsave exec grestore     % fillproc; need to preserve path hence gsave
+        exec                    % strokeproc
+    grestore
+} def
+
+/rarrowto {
+    2 copy
+    rlineto
+    gsave
+    exch atan rotate
+    -.3 .2 rmoveto
+    .3 -.2 rlineto
+    -.3 -.2 rlineto
+    .3 .2 rmoveto
+    strk exec
+    grestore
+} def
+
+/draw-enclosers-p true def
+/draw-arrows-p true def
+
+%%
+%% Translate there before rotating.
+%% Encloser points run counterclockwise starting at the bottom-left point,
+%% except for H, which starts at leftmost point.
+
+
+%%%%%
+%
+%%%%
+%
+%
+
+% /metatile-encloser {
+%     strk {}
+%     3 -1 roll
+%     hpath
+% } def
+
+/metatile-FP {
+    /F eq {
+        grey
+        metatile-F-encloser-points
+    } {
+        white
+        metatile-P-encloser-points
+    } ifelse
+    gsave
+        0 get aload pop
+        translate
+        0 0 moveto
+        % left hat
+        gsave
+            dup strkk exch
+            hat-flipped
+            -60 rotate
+            hpath
+        grestore
+        gsave
+            strkk exch
+            hat-flipped
+            one 3 mul   0   translate
+            hpath
+        grestore
+    grestore
+} def
+
+/metatile-F {
+    /F metatile-FP
+    draw-enclosers-p {
+        metatile-F-encloser
+    } if
+} def
+
+/metatile-F-encloser-points {
+    [
+        [0               0]
+        [one 3 mul       0]
+        [one 3.5 mul  sq32]
+        [one 3 mul     sq3]
+        [one neg       sq3]
+    ]
+} def
+
+/metatile-F-encloser {
+    strk {}
+    metatile-F-encloser-points
+    gsave
+        dup
+        0 get aload pop
+        translate
+        0 0 moveto
+        hpath
+    grestore
+} def
+
+
+%%%%
+%   %
+%%%%
+%
+%
+
+/metatile-P {
+    /P metatile-FP
+    draw-enclosers-p {
+        metatile-P-encloser
+    } if
+} def
+
+/metatile-P-encloser-points {
+    [
+        [0              0]          % P0
+        [one 4 mul      0]          % P1
+        [one 3 mul    sq3]          % P2
+        [one neg      sq3]          % P3
+    ]
+} def
+
+/metatile-P-encloser-arrow-endpoints {
+    [
+        metatile-P-encloser-points 2 get
+        metatile-P-encloser-points 0 get
+        2 copy
+        vmidpoint
+        3 1 roll
+        vsub aload pop exch pop
+        0 exch 2 array astore       % mp dr
+        dup -.3 vmul
+        3 -1 roll
+        vadd
+        exch .6 vmul
+    ]
+} def
+
+/metatile-P-arrow {
+    gsave
+        metatile-P-encloser-arrow-endpoints
+        aload pop
+        exch aload pop rmoveto
+        aload pop rarrowto
+    grestore
+} def
+
+/metatile-P-encloser {
+    strk {}
+    metatile-P-encloser-points
+    gsave
+        dup
+        0 get aload pop
+        translate
+        0 0 moveto
+        hpath
+        draw-arrows-p {
+            metatile-P-arrow
+        } if
+    grestore
+} def
+
+
+
+
+%%%%%
+  %
+  %
+  %
+  %
+
+/metatile-T {
+    gsave
+        metatile-T-encloser-points
+        0 get aload pop
+        translate
+        0 0 moveto
+        gsave
+            strkk white
+            hat-flipped
+            one dup add   0 translate
+            hpath
+        grestore
+        draw-enclosers-p {
+            metatile-T-encloser
+        } if
+    grestore
+} def
+
+/metatile-T-encloser-points {
+    [
+        [0             0]           % T0
+        [one 3 mul     0]           % T1
+        [one half add  sq3 1.5 mul] % T2
+    ]
+} def
+
+/metatile-T-encloser-arrow-endpoints {
+    [
+        % point arrow toward (T2 - T1) / 2
+        metatile-T-encloser-points 2 get
+        metatile-T-encloser-points 0 get
+        vsub .5 vmul
+        metatile-T-encloser-points 0 get
+        vadd
+        metatile-T-encloser-points 1 get
+        vsub                        % direction of arrow
+        dup .25 vmul                 % offset from T0
+        metatile-T-encloser-points 1 get % start point
+        vadd
+        exch .6 vmul               % relative length of arrow
+    ]
+} def
+
+/metatile-T-arrow {
+    gsave
+        metatile-T-encloser-arrow-endpoints
+        aload pop
+        exch aload pop rmoveto
+        aload pop rarrowto
+    grestore
+} def
+
+/metatile-T-encloser {
+    strk {}
+    metatile-T-encloser-points
+    gsave
+        dup
+        0 get aload pop
+        translate
+        0 0 moveto
+        hpath
+        draw-arrows-p {
+            metatile-T-arrow
+        } if
+    grestore
+} def
+
+
+%   %
+%   %
+%%%%%
+%   %
+%   %
+
+/metatile-H {
+    gsave
+        metatile-H-encloser-points
+        0 get aload pop
+        translate
+        0 0 moveto
+        % lower-left hat
+        gsave
+            strkk sky
+            hat-flipped
+            -120 rotate
+            hpath
+        grestore
+        % middle hat
+        gsave
+            strkk azure
+            hat-upright
+            one half add   sq32   translate
+            -60 rotate
+            hpath
+        grestore
+        % lower-right hat
+        gsave
+            strkk sky
+            hat-flipped
+            one 3 mul   0   translate
+            -120 vrotate
+            hpath
+        grestore
+        gsave
+            strkk sky
+            hat-flipped
+            3 one mul   sq3 dup add   translate
+            120 vrotate
+            hpath
+        grestore
+        draw-enclosers-p {
+            metatile-H-encloser
+        } if
+    grestore
+
+} def
+
+/metatile-H-encloser-points {
+    [
+        [0            0]            % H0
+        [half         sq32 neg]     % H1
+        [one 4.5 mul  sq32 neg]     % H2
+        [one 5 mul    0]            % H3
+        [one 3 mul    sq3 dup add]  % H4
+        [one dup add  sq3 dup add]  % H5
+    ]
+} def
+
+/metatile-H-encloser-arrow-endpoints {
+    [
+        % tail of arrow points toward (H1 - H0) / 2
+        metatile-H-encloser-points 1 get
+        metatile-H-encloser-points 0 get
+        vsub .5 vmul
+        metatile-H-encloser-points 0 get
+        vadd
+        dup
+        % point of arrow points toward (H4 - H3) / 2
+        metatile-H-encloser-points 4 get
+        metatile-H-encloser-points 3 get
+        vsub .5 vmul
+        metatile-H-encloser-points 3 get
+        vadd                        % m10 m43
+        exch vsub                   % direction of arrow:
+        dup .3 vmul            % offset from H1H0 midpoint
+        3 -1 roll vadd              % arrow start point
+        exch .4 vmul                % relative length of arrow
+    ]
+} def
+
+/metatile-H-arrow {
+    gsave
+        metatile-H-encloser-arrow-endpoints
+        aload pop
+        exch aload pop rmoveto
+        aload pop rarrowto
+    grestore
+} def
+
+/metatile-H-encloser {
+    strk {}
+    metatile-H-encloser-points
+    gsave
+        dup
+        0 get aload pop
+        translate
+        0 0 moveto
+        hpath
+        draw-arrows-p {
+            metatile-H-arrow
+        } if
+    grestore
+} def
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% 0 0 moveto metatile-T
+% 0 0 moveto metatile-T-encloser
+
+/transparent-colors {
+    /sky   {{}} def
+    /azure {{}} def
+    /grey  {{}} def
+    /white {{}} def
+} def
+
+/reset-colors {
+    /sky   {{ .6 .8 .9 setrgbcolor fill }} def
+    /azure {{ 0 .55 .9 setrgbcolor fill }} def
+    /grey  {{ .75 setgray fill }} def
+    /white {{ 1 setgray fill }} def
+} def
+
+/brown-colors{
+    /sky   {{ .7 .4 .1 setrgbcolor fill }} def
+    /azure {{ .7 .4 .1 setrgbcolor fill }} def
+    /grey  {{ .7 .4 .1 setrgbcolor fill }} def
+    /white {{ .7 .4 .1 setrgbcolor fill }} def
+} def
+
+/red-colors{
+    /sky   {{ 1. 0 0 setrgbcolor fill }} def
+    /azure {{ 1. 0 0 setrgbcolor fill }} def
+    /grey  {{ 1. 0 0 setrgbcolor fill }} def
+    /white {{ 1. 0 0 setrgbcolor fill }} def
+} def
+
+/orange-colors{
+    /sky   {{ 1. .6 .5  setrgbcolor fill }} def
+    /azure {{ 1. .6 .5 setrgbcolor fill }} def
+    /grey  {{ 1. .6 .5 setrgbcolor fill }} def
+    /white {{ 1. .6 .5 setrgbcolor fill }} def
+} def
+
+/yellow-colors{
+    /sky   {{ 1. 1. 0 setrgbcolor fill }} def
+    /azure {{ 1. 1. 0 setrgbcolor fill }} def
+    /grey  {{ 1. 1. 0 setrgbcolor fill }} def
+    /white {{ 1. 1. 0 setrgbcolor fill }} def
+} def
+
+/green-colors{
+    /sky   {{ 0. 1. 0 setrgbcolor fill }} def
+    /azure {{ 0. 1. 0 setrgbcolor fill }} def
+    /grey  {{ 0. 1. 0 setrgbcolor fill }} def
+    /white {{ 0. 1. 0 setrgbcolor fill }} def
+} def
+
+/blue-colors{
+    /sky   {{ .4 .4 1 setrgbcolor fill }} def
+    /azure {{ .4 .4 1 setrgbcolor fill }} def
+    /grey  {{ .4 .4 1 setrgbcolor fill }} def
+    /white {{ .4 .4 1 setrgbcolor fill }} def
+} def
+
+/white-colors{
+    /sky   {{ 1 1 1 setrgbcolor fill }} def
+    /azure {{ 1 1 1 setrgbcolor fill }} def
+    /grey  {{ 1 1 1 setrgbcolor fill }} def
+    /white {{ 1 1 1 setrgbcolor fill }} def
+    /strkk {{ 1 setlinejoin .025 setlinewidth 1 setgray stroke }} def
+    /strk {{ 1 setlinejoin .025 setlinewidth 1 setgray stroke }} def
+} def
+
+%%NEXT%%
+/mksym {                        % string-prefix number >>> symbol
+    dup
+    log cvi 1 add
+    string cvs                  % spfx numstr
+    dup length                  % spfx numstr numlen
+    2 index length add string   % spfx numstr empty-string
+    dup dup                     % spfx numstr empty-string empty-string empty-string
+    4 index 0 exch
+    putinterval                 % numstr empty-string stringwithprefix
+    4 -1 roll length
+    4 -1 roll putinterval
+    cvn
+} def
+
+
+/nextiter {                     % iteration >>> generated symbols
+    dup
+    1 eq {
+        pop
+        /tile-H-1 //metatile-H def
+        /tile-H-encloser-points-1 //metatile-H-encloser-points def
+        /tile-H-encloser-1 //metatile-H-encloser def
+        /tile-T-1 //metatile-T def
+        /tile-T-encloser-points-1 //metatile-T-encloser-points def
+        /tile-T-encloser-1 //metatile-T-encloser def
+        /tile-F-1 //metatile-F def
+        /tile-F-encloser-points-1 //metatile-F-encloser-points def
+        /tile-F-encloser-1 //metatile-F-encloser def
+        /tile-P-1 //metatile-P def
+        /tile-P-encloser-points-1 //metatile-P-encloser-points def
+        /tile-P-encloser-1 //metatile-P-encloser def
+    } {
+        % dup 1 sub mark          % next-level this-level -mark-
+        % /this-level { counttomark 1 add index } def
+        % /next-level { counttomark 2 add index } def
+        dup /next-level exch def
+        1 sub /this-level exch def
+
+        /H { (tile-H-) this-level mksym load exec } def
+        /T { (tile-T-) this-level mksym load exec } def
+        /P { (tile-P-) this-level mksym load exec } def
+        /F { (tile-F-) this-level mksym load exec } def
+        /HE { (tile-H-encloser-) this-level mksym load exec } def
+        /TE { (tile-T-encloser-) this-level mksym load exec } def
+        /PE { (tile-P-encloser-) this-level mksym load exec } def
+        /FE { (tile-F-encloser-) this-level mksym load exec } def
+        /HEP { (tile-H-encloser-points-) this-level mksym load exec } def
+        /TEP { (tile-T-encloser-points-) this-level mksym load exec } def
+        /PEP { (tile-P-encloser-points-) this-level mksym load exec } def
+        /FEP { (tile-F-encloser-points-) this-level mksym load exec } def
+
+        /nexttile-H { (tile-H-) next-level mksym } def
+        /nexttile-T { (tile-T-) next-level mksym } def
+        /nexttile-P { (tile-P-) next-level mksym } def
+        /nexttile-F { (tile-F-) next-level mksym } def
+        /nexttile-H-encloser { (tile-H-encloser-) next-level mksym } def
+        /nexttile-T-encloser { (tile-T-encloser-) next-level mksym } def
+        /nexttile-P-encloser { (tile-P-encloser-) next-level mksym } def
+        /nexttile-F-encloser { (tile-F-encloser-) next-level mksym } def
+        /nexttile-H-encloser-points { (tile-H-encloser-points-) next-level mksym } def
+        /nexttile-T-encloser-points { (tile-T-encloser-points-) next-level mksym } def
+        /nexttile-P-encloser-points { (tile-P-encloser-points-) next-level mksym } def
+        /nexttile-F-encloser-points { (tile-F-encloser-points-) next-level mksym } def
+
+
+
+        nexttile-H {
+            % Everything in the H ubertile starts with this as "zero"
+            % Lower-left H
+            gsave
+                HEP 0 get
+                aload pop translate
+                H
+            grestore
+
+            % Lower-right H
+            gsave
+                HEP
+                dup 0 get exch
+                dup 2 get exch 0 get vsub
+                vadd
+                aload pop translate
+                H
+            grestore
+
+            % Upper H
+            gsave
+                HEP
+                dup 0 get exch
+                dup 4 get exch 0 get vsub
+                dup vadd
+                vadd
+                aload pop translate
+                -120 rotate
+                H
+            grestore
+            %%%%%%
+            % Middle T
+            gsave
+                HEP dup
+                dup 2 get exch 0 get vsub
+                exch dup 4 get exch HE 0 get vsub
+                vadd
+                FEP
+                dup 2 get exch 1 get vsub
+                120 vrot
+                vadd
+                aload pop translate
+                180 rotate
+                T
+            grestore
+
+            % metatiles F
+            gsave
+                3 {
+                    HEP dup 2 get exch 0 get vsub
+                    aload pop translate
+                    gsave
+                        HEP dup 2 get exch 0 get vsub
+                        PEP dup 0 get exch 2 get vsub
+                        vadd
+                        aload pop translate
+                        F
+                    grestore
+                    HEP dup 2 get exch 0 get vsub
+                    HEP dup 4 get exch 2 get vsub
+                    dup vadd vadd
+                    aload pop translate
+                    -120 rotate
+                } repeat
+            grestore
+
+            % metatiles P
+            gsave
+            % The first two follow the same pattern
+                2 {
+                    HEP dup 2 get exch 0 get vsub
+                    aload pop translate
+                    gsave
+                        PEP dup 0 get exch 2 get vsub
+                        aload pop translate
+                        P
+                    grestore
+                    HEP dup 2 get exch 0 get vsub
+                    HEP dup 4 get exch 2 get vsub
+                    dup vadd vadd
+                    aload pop translate
+                    -120 rotate
+                } repeat
+                HEP dup 2 get exch 0 get vsub
+                aload pop translate
+                gsave
+                    180 rotate
+                    P
+                grestore
+            grestore
+        } def
+
+        nexttile-H-encloser-points
+            % New point NH0
+            HEP 0 get
+            FEP dup 2 get exch 1 get vsub
+            120 vrot
+            vadd                % NH0
+
+            % Placeholder for NH1
+            dup                 % NH0 ?NH1
+
+            % New point H2
+            HEP
+            dup 0 get exch
+            dup 2 get exch 0 get vsub
+            dup vadd
+            vadd
+            FEP dup 2 get exch 1 get vsub
+            -120 vrot
+            vadd                % NH0 ?NH1 NH2
+
+            % Placeholder for NH3
+            dup                 % NH0 ?NH1 NH2 ?NH3
+
+            % New point NH4
+            1 index             % NH0 ?NH1 NH2 ?NH3 NH2
+            4 index             % NH0 ?NH1 NH2 ?NH3 NH2 NH0
+            vsub
+            60 vrot             % NH0 ?NH1 NH2 ?NH3 r(NH2-NH0)
+            4 index vadd        % NH0 ?NH1 NH2 ?NH3 NH4
+
+            % Placeholder for NH5
+            dup
+
+            6 array astore
+        def
+
+
+        % (tile-H-color-points-) next-level mksym { %    /nexttile-H-color-points {
+        %     nexttile-H-encloser-points 0 get tr
+        %     nexttile-H-encloser-points 2 get tg
+        %     nexttile-H-encloser-points 4 get tb
+        % } def
+
+        nexttile-H-encloser {
+            sstrk {}
+            nexttile-H-encloser-points load
+            hpath
+            epts {
+                nexttile-H-encloser-points load dup dup
+                0 get te
+                2 get te
+                4 get te
+            } if
+        } def
+
+
+        nexttile-F {
+            gsave
+                FEP dup 0 get exch 2 get vsub
+                -60 vrot
+                aload pop translate
+                -60 rotate
+                F
+            grestore
+
+            gsave
+                FEP dup 3 get exch 2 get vsub
+                -60 vrot
+                aload pop translate
+                60 rotate
+                H
+            grestore
+
+            gsave
+                FEP dup 3 get exch 2 get vsub
+                -60 vrot
+                HEP dup 4 get exch 0 get vsub
+                vadd
+                PEP dup 0 get exch 2 get vsub
+                60 vrot
+                vadd
+                dup % save where 0 0 should be for next iteration and onwards
+                aload pop translate
+                60 rotate
+                P
+            grestore
+
+            gsave
+                HEP dup 2 get exch 0 get vsub
+                vadd
+                dup             % ditto
+                aload pop translate
+                120 rotate
+                H
+            grestore
+
+            gsave
+                dup
+                FEP dup 0 get exch 3 get vsub
+                vadd
+                aload pop translate
+                F
+            grestore
+
+            gsave
+                HEP dup 2 get exch 0 get vsub
+                120 vrot
+                vadd
+                FEP dup 0 get exch 3 get vsub
+                120 vrot
+                vadd
+                aload pop translate
+                120 rotate
+                F
+            grestore
+        } def
+
+        nexttile-P {
+            gsave
+                FEP dup 0 get exch 2 get vsub
+                -60 vrot
+                aload pop translate
+                -60 rotate
+                F
+            grestore
+
+            gsave
+                FEP dup 3 get exch 2 get vsub
+                -60 vrot
+                aload pop translate
+                60 rotate
+                H
+            grestore
+
+            gsave
+                FEP dup 3 get exch 2 get vsub
+                -60 vrot
+                HEP dup 4 get exch 0 get vsub
+                vadd
+                PEP dup 0 get exch 2 get vsub
+                60 vrot
+                vadd
+                dup % save where 0 0 should be for next iteration and onwards
+                aload pop translate
+                60 rotate
+                P
+            grestore
+
+            gsave
+                HEP dup 2 get exch 0 get vsub
+                vadd
+                dup             % ditto
+                aload pop translate
+                120 rotate
+                H
+            grestore
+
+            gsave
+                HEP dup 2 get exch 0 get vsub
+                120 vrot
+                vadd
+                FEP dup 0 get exch 3 get vsub
+                120 vrot
+                vadd
+                aload pop translate
+                120 rotate
+                F
+                grestore
+        } def
+
+
+
+        nexttile-F-encloser-points
+            % Point F0
+            [0 0]               % P0
+
+            % Point F1
+            dup
+            FEP dup 3 get exch 2 get vsub
+            -60 vrot
+            vadd
+
+            HEP dup 1 get exch 0 get vsub
+            60 vrot
+            vadd
+
+            PEP dup 0 get exch 3 get vsub
+            60 vrot
+            vadd
+
+            HEP dup 2 get exch 0 get vsub
+            vadd
+
+            FEP dup 2 get exch 3 get vsub
+            vadd                % P0 P1
+
+            % Point F2
+            dup
+            FEP dup 0 get exch 2 get vsub
+            -120 vrot
+            vadd                % P0 P1 P2
+
+            % point 3
+            dup
+            FEP dup 2 get exch 0 get vsub
+            120 vrot
+            vadd                % P0 P1 P2 P3
+
+            %% c
+            %% Pretend we ran the last four points:
+            %% nexttile-F-encloser-points aload pop
+            %% gsave nexttile-H-encloser-points dup 2 get exch 0 get vsub aload pop translate [0 0] tm
+
+            %% we are now in the LR tile's frame of reference
+            %% this should be the F tile's P3
+            %% nexttile-H-encloser-points 2 get nexttile-F-encloser-points dup 3 get exch 3 get vsub vadd
+            %% dup nexttile-F-encloser-points dup 0 get exch 1 get vsub dup vadd vadd
+            %% turn it into an hpath
+            %%
+            %% verify we have the right array
+            %% 2 copy 2 array astore sstrk exch {} exch hpath
+            %% we do indeed
+            %% H tile's P0:
+            %% nexttile-H-encloser-points 0 get dup ty
+            %% F tile's P0:
+            %% nexttile-H-encloser-points 2 get nexttile-F-encloser-points dup 0 get exch 3 get vsub vadd
+            %% intersect the suckers
+            %% vintersect
+            % Point 4 is tricky.
+            % draw a parallel to P1P0 from P3
+            % [-0.280822039 -1.60155368]
+            % [7.0 5.19615221]
+            % [9.5 2.59807611]
+            % [8.5 -0.866025388]
+            % [0 0]
+
+            % a line from F/P3 going to the left
+            nexttile-H-encloser-points load
+            2 get               % ... FP0 FP1 FP2 FP3 HP2
+            dup                 % ... FP0 FP1 FP2 FP3 HP2 HP2
+            5 index             % ... FP0 FP1 FP2 FP3 HP2 HP2 FP0
+            5 index             % ... FP0 FP1 FP2 FP3 HP2 HP2 FP0 FP1
+            vsub dup vadd vadd  % ... FP0 FP1 FP2 FP3 HP2 XXX
+
+            % a line from H/P0 to F/P0
+            nexttile-H-encloser-points load
+            0 get               % ... FP0 FP1 FP2 FP3 HP2 XXX HP0
+
+            nexttile-H-encloser-points load
+            2 get               % ... FP0 FP1 FP2 FP3 HP2 XXX HP0 HP2
+            7 index             % ... FP0 FP1 FP2 FP3 HP2 XXX HP0 HP2 FP0
+            5 index             % ... FP0 FP1 FP2 FP3 HP2 XXX HP0 HP2 FP0 FP3
+            vsub vadd
+            % THe intersection is almost P4
+            vintersect          % ... FP0 FP1 FP2 FP3 AP4
+
+            4 index 2 index vsub
+            nexttile-H-encloser-points load
+            2 get vadd
+            vsub
+
+            5 array astore
+        def
+
+        nexttile-F-encloser {
+            sstrk {}
+            nexttile-F-encloser-points load
+            hpath
+            epts {
+                nexttile-F-encloser-points load dup dup
+                0 get te
+                1 get te
+                3 get te
+            } if
+        } def
+
+        nexttile-P-encloser-points
+            nexttile-F-encloser-points load
+            aload pop           % PP0 | FP1 FP2 FP3 FP4
+            1 index
+            1 index vsub        % PP0 | FP1 FP2 FP3 FP4 FP3-FP4
+            5 index vadd        % PP0 | FP1 FP2 FP3 FP4 FP3-FP4+FP0 <- new PP1
+            5 1 roll            % PP0 PP1 | FP1 FP2 FP3 FP4
+            4 -1 roll pop       % PP0 PP1 | FP2 FP3 PP4
+            3 -1 roll pop       % PP0 PP1 PP2 PP3
+
+            4 array astore
+        def
+
+        nexttile-P-encloser {
+            sstrk {}
+            nexttile-P-encloser-points load
+            hpath
+            epts {
+                nexttile-P-encloser-points load dup
+                0 get te
+                2 get te
+            } if
+        } def
+
+        nexttile-T-encloser-points {
+            % pre-point 0
+            nexttile-H-encloser-points load dup
+            4 get exch
+            dup 1 get exch 0 get vsub vadd
+
+            % pre-point 1
+            nexttile-H-encloser-points load
+            3 get               % PP0 HE3
+            1 index vsub 60 vrot
+            1 index vadd        % PP0 PP1
+
+            % pre-point 2
+            dup                 % PP0 PP1 PP1
+            2 index vsub        % PP0 PP1 PP1-PP0
+            60 vrot             % PP0 PP1 r(PP1-PP0)
+            2 index vadd        % PP0 PP1 PP2
+
+            2 index vsub        % PP0 PP1 TE2
+            3 1 roll            % TE2 PP0 PP1
+            exch vsub           % TE2 TE1
+            exch [0 0] 3 1 roll % TE0 TE1 TE2
+
+            3 array astore
+        } def
+
+
+        nexttile-T {
+            gsave
+                nexttile-T-encloser-points load
+                aload pop
+                vadd vadd 1 3 div vmul  % centroid
+
+                HE 0 get HE 2 get HE 4 get
+                vadd vadd 1 3 div vmul % H centroid
+
+                vsub aload pop translate H
+            grestore
+        } def
+
+        nexttile-T-encloser {
+            sstrk {}
+            nexttile-T-encloser-points load
+            hpath
+        } def
+
+        % Now that we have computed the supertile-F encloser points,
+        % we can back-patch supertile-H
+
+        % patch point 1
+
+        nexttile-H-encloser-points load
+        dup dup                 % ... NHEP NHEP NHEP
+
+        2 get                   % ... NHEP NHEP NH2
+
+        nexttile-P-encloser-points load
+        dup 3 get exch 2 get    % ... NHEP NHEP NH2 NP3 NP2
+        vsub                    % ... NHEP NHEP NH2 NP3-NP2
+        vadd                    % ... NHEP NHEP NH2+NP3-NP2
+        1 exch put              % ... NHEP1
+
+        % patch point 3
+
+        dup dup dup dup         % ... NHEP1 NHEP1 NHEP1 NHEP1 NHEP1
+        1 get exch 0 get vsub   % ... NHEP1 NHEP1 NHEP1 NP1-NP0
+        120 vrot                % ... NHEP1 NHEP1 NHEP1 r(NP1-NP0)
+        exch 2 get              % ... NHEP1 NHEP1 r(NP1-NP0) NP2
+        vadd                    % ... NHEP1 NHEP1 r(NP1-NP0)+NP2
+        3 exch put              % ... NHEP13
+
+        % patch point 5
+        dup dup dup             % ... NHEP13 NHEP13 NHEP13 NHEP13
+        1 get exch 0 get vsub   % ... NHEP13 NHEP13 NP1-NP0
+        240 vrot                % ... NHEP13 NHEP13 r(NP1-NP0)
+        exch 4 get vadd         % ... NHEP13 r(NP1-NP0)+NP4
+        5 exch put              % ...
+    } ifelse
+} def
+
+/e {
+    /tile true def /encl false def /epts true def
+    c
+    /sstrk {
+        {
+            gsave
+            1 setlinejoin .4 setlinewidth 0 setgray stroke
+            grestore
+            1 setlinejoin .2 setlinewidth 0 .5 0 0 setcmykcolor stroke
+        }
+    } def
+    /tile false def /encl true def
+    c
+    /sstrk {
+        { 1 setlinejoin .25 setlinewidth 0 1 0 0 setcmykcolor stroke }
+    } def
+} def
+
+
+/d {
+    gsave
+        nexttile-H-encloser-points dup 2 get exch 0 get vsub
+        dup vadd
+        aload pop translate
+        c
+    grestore
+} def
+
+
+/c {
+    nextiter pop
+
+    /cc {
+        gsave
+            % lower-left H
+            unicolor { brown-colors } if
+            transcolor { transparent-colors } if
+            gsave
+                tile { nexttile-H } if
+                encl { nexttile-H-encloser } if
+            grestore
+
+            % Lower-right H
+            unicolor { red-colors } if
+            transcolor { transparent-colors } if
+            gsave
+                nexttile-H-encloser-points dup
+                2 get exch 0 get vsub
+                aload pop translate
+                tile { nexttile-H } if
+                encl { nexttile-H-encloser } if
+
+                % F
+                unicolor { orange-colors } if
+                transcolor { transparent-colors } if
+                gsave
+                    nexttile-H-encloser-points 2 get
+                    aload pop translate
+                    nexttile-F-encloser-points dup 0 get exch 3 get vsub
+                    aload pop translate
+                    tile { nexttile-F } if
+                    encl { nexttile-F-encloser } if
+
+                    % P
+                    unicolor { yellow-colors } if
+                    transcolor { transparent-colors } if
+                    gsave
+                        nexttile-H-encloser-points dup 0 get exch 2 get vsub
+                        aload pop translate
+                        tile { nexttile-P } if
+                        encl { nexttile-P-encloser } if
+                    grestore
+                grestore
+            grestore
+
+            % Upper H
+            unicolor { green-colors } if
+            transcolor { transparent-colors } if
+            gsave
+                nexttile-H-encloser-points 0 get dup
+                aload pop translate
+                -120 rotate
+                vneg
+                aload pop translate
+
+                nexttile-H-encloser-points dup 0 get exch 2 get vsub
+                dup vadd
+                aload pop translate
+                tile { nexttile-H } if
+                encl { nexttile-H-encloser } if
+            grestore
+
+            % T
+            unicolor { blue-colors } if
+            transcolor { transparent-colors } if
+            gsave
+                nexttile-H-encloser-points 4 get
+                nexttile-H-encloser-points dup 1 get exch 0 get vsub vadd
+                aload pop translate -60 rotate
+                tile { nexttile-T } if
+                encl { nexttile-T-encloser } if
+            grestore
+        grestore
+    } def
+
+    /draw-enclosers-p false def
+
+    /unicolor false def
+    /transcolor false def
+
+    /tile true def /encl false def /epts true def
+    cc
+
+    /sstrk {
+        {
+            gsave
+                1 setlinejoin .4 setlinewidth 0 setgray stroke
+            grestore
+            1 setlinejoin .2 setlinewidth 0 .5 0 0 setcmykcolor stroke
+        }
+    } def
+
+    /tile false def /encl true def /epts true def
+    %%%%cc
+
+    /sstrk {
+        { 1 setlinejoin .25 setlinewidth 0 1 0 0 setcmykcolor stroke }
+    } def
+} def
+
+
+{
+            % Upper H
+    gsave
+    nexttile-H-encloser-points dup 4 get exch 0 get vsub
+    dup vadd
+
+    aload pop translate
+    -120 rotate
+
+      nexttile-H
+    grestore
+
+
+
+      % vadd
+      % nexttile-F-encloser-points 3 get nexttile-F-encloser-points 1 get vsub
+      % vadd
+      % aload pop translate
+      % -120 rotate
+
+
+} pop

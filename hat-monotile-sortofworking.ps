@@ -1,0 +1,219 @@
+%!
+
+/printtomark {
+    1 dict begin
+    /points exch def
+    gsave
+    {
+        2 copy
+        moveto
+        3 -1 roll
+        show
+        ( ) show
+        points
+        {
+            exch 40 string cvs show
+            (, ) show
+            40 string cvs show
+        }
+        { pop pop }
+        ifelse
+        counttomark 0 eq {
+            exit
+        } if
+    } loop
+    pop
+    grestore
+} def
+
+/v4 {                           % drawline_proc fill_proc >>> --
+    4 dict begin
+    /fillproc exch def
+    /drawlineproc exch def
+    /s2 3 sqrt 2 div def        % sin(60)
+    /s4 s2 2 div def
+
+    currentpoint
+    newpath
+        moveto                  % our new (0, 0)
+        mark
+        (A) currentpoint 3 copy == == == ( ) ==
+        .5 0 rlineto
+        (B) currentpoint 3 copy == == == ( ) ==
+        0 s2 rlineto
+        (C) currentpoint 3 copy == == == ( ) ==
+        .75 s4 rlineto
+        (D) currentpoint 3 copy == == == ( ) ==
+        .25 s4 neg rlineto
+        (E) currentpoint 3 copy == == == ( ) ==
+        .5 0  rlineto
+        (F) currentpoint 3 copy == == == ( ) ==
+        0 s2 neg rlineto
+        (G) currentpoint 3 copy == == == ( ) ==
+        .75 s4 neg rlineto
+        (H) currentpoint 3 copy == == == ( ) ==
+        -.25 s4 neg rlineto
+        (I) currentpoint 3 copy == == == ( ) ==
+        -1 0 rlineto
+        (J) currentpoint 3 copy == == == ( ) ==
+        -.25 s4 rlineto
+        (K) currentpoint 3 copy == == == ( ) ==
+        -.75 s4 neg rlineto
+        (L) currentpoint 3 copy == == == ( ) ==
+        -.75 s4 rlineto
+        (M) currentpoint 3 copy == == == ( ) ==
+    closepath
+    gsave
+        fillproc
+    grestore
+    gsave
+        drawlineproc
+    grestore
+    false printtomark
+    end
+} def
+
+
+/scalefactor 60 def
+
+/Helvetica findfont 18 scalefactor div scalefont setfont
+% /Helvetica findfont 18 scalefont setfont
+
+/strk {
+    { 1 setlinejoin .05 setlinewidth stroke }
+} def
+
+/strkr {
+    { 1 setlinejoin .025 setlinewidth 1 0 0 setrgbcolor stroke }
+} def
+
+/strkg {
+    { 1 setlinejoin .025 setlinewidth 0 1 0 setrgbcolor stroke }
+} def
+/strkb {
+    { 1 setlinejoin .025 setlinewidth 0 0 1 setrgbcolor stroke }
+} def
+
+/sky {
+    { .6 .8 .9 setrgbcolor fill }
+} def
+
+/azure {
+    { 0 .55 .9 setrgbcolor fill }
+} def
+
+/grey {
+    { .75 setgray fill }
+} def
+
+/white {
+    { 1 setgray fill }
+} def
+
+% gsave
+%     0 0 moveto
+%     0 rotate
+%     strk azure v3
+
+%     0 0 moveto
+%     120 rotate
+%     strk sky v3
+
+%     0 0 moveto
+%     120 rotate
+%     strk grey v3
+% grestore
+
+
+
+% 0 60 359 {
+%     200 400 translate
+%     scalefactor neg scalefactor scale
+%     gsave
+%     rotate
+%     0 0 moveto strk sky v4
+%     grestore
+%     0 0 moveto (F) show
+%     showpage
+% } for
+
+
+    /s2 3 sqrt 2 div def        % sin(60)
+    /s4 s2 2 div def
+
+
+% 200 400 translate
+% scalefactor dup scale
+% gsave
+%   -60 rotate
+%   0 0 moveto strk azure v4
+% grestore
+
+% % gsave
+% %   1.5 s2 3 mul neg translate
+% %   gsave
+% %     240 rotate
+% %     -1 1 scale
+% %     0 0 moveto strk sky v4
+% %   grestore
+% % grestore
+
+
+200 400 translate
+scalefactor dup scale
+
+
+
+% -60 rotate
+
+gsave
+  .01 setlinewidth
+  -5 1 5 {
+  gsave
+      0 translate
+      0 -5 moveto 0 5 lineto stroke
+  grestore
+  } for
+  -5 1 5 {
+  gsave
+      0 exch translate
+      -5 0 moveto 5 0 lineto stroke
+  grestore
+  } for
+grestore
+
+
+
+
+gsave
+  % -60 rotate
+  0 0 moveto strk {} v4
+grestore
+
+
+
+gsave
+  3 0 translate
+  -60 rotate
+  -1 1 scale
+  0 0 moveto strkg {} v4
+grestore
+
+
+gsave
+  -1.5 s2 translate
+  180 rotate
+  -1 1 scale
+  0 0 moveto strkb {} v4
+grestore
+
+gsave
+   1.5 -3 s4 add .04 sub translate
+  % 1.5 -2.5 translate
+  300 rotate
+  -1 1 scale
+  0 0 moveto strkr {} v4
+
+grestore
+
+% showpage

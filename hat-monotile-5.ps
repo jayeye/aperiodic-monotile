@@ -1,0 +1,85 @@
+%!
+
+/sq3 3 sqrt def
+/sq32 sq3 2 div def
+
+/hexpoint {             % [x_hexgrid y_hexgrid] >>> [x y]
+    aload pop           % x_hexgrid y_hexgrid
+    exch 1 index
+    2 div add           % y_hexgrid x_hexgrid+y_hexgrid/2
+    exch sq32 mul       %
+    2 array astore      % [x_hexgrid+y_hexgrid/2 y_hexgrid*√3/2]
+} def
+
+% Transformation matrices (PS-style)
+
+% Rotate by angle
+/mxrot {                % angle >>> matrix
+    dup
+    sin
+    exch cos            % sin(a) cos(a)
+    [                   % sin(a) cos(a) -mark-
+        1 index         % sin(a) cos(a) -mark- cos(a)
+        3 index neg     % sin(a) cos(a) -mark- cos(a) -sin(a)
+        0               % sin(a) cos(a) -mark- cos(a) -sin(a) 0
+        6 -2 roll       % -mark- cos(a) -sin(a) 0 sin(a) cos(a)
+    ]
+} def
+
+% Translate to [x y]
+/txtrans {              % [x y] >>> matrix
+    aload pop           % x y
+    [                   % x y -mark-
+        1 0             % x y -mark- 1 0
+        5 -1 roll       % y -mark- 1 0 x
+        0 1             % y -mark- 1 0 x 0 1
+        7 -1 roll       % -mark- 1 0 x 0 1 y
+    ]
+} def
+
+
+/vadd {                 % [x1 y1] [x2 y2] >>> [x1+x2 y1+y2]
+    aload pop           % [x1 y1] x2 y2
+    3 -1 roll           % x2 y2 [x1 y1]
+    aload pop           % x2 y2 x1 y1
+    3 -1 roll           % x2 x1 y1 y2
+    add                 % x2 x1 y1+y2
+    3 1 roll            % y1+y2 x2 x1
+    add                 % y1+y2 x2+x1
+    exch                % x2+x1 y1+y2
+    2 array astore      % [x1+x2 y1+y2]
+} def
+
+/vneg {                 % [x y] >>> [-x -y]
+    aload pop
+    neg exch neg exch
+    2 array astore
+} def
+
+/vsub {                 % [x1 y1] [x2 y2] >>> [x1-x2 y1-y2]
+    vneg
+    vadd
+} def
+
+/vmul {                 % [x y] m >>> [x*m y*m]
+    exch aload pop      % m x y
+    2 index             % m x y m
+    mul                 % m x y*m
+    3 1 roll            % y*m m x
+    mul                 % y*m x*m
+    exch
+    2 array astore
+} def
+
+/vmidpoint {             % [x1 y1] [x2 y2] >>> [(x1+x2)/2 (y1+y2)/2]
+    vadd
+    .5 vmul
+} def
+
+/vmeasure {             % [x y] >>> sqrt(x^2+y^2)
+    aload pop           % x y
+    dup mul             % x y*y
+    exch dup mul        % y*y x*x
+    add                 % x*x+y*y
+    sqrt                % sqrt(x^2+y^2)
+} def
