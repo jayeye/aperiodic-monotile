@@ -1,4 +1,6 @@
 %!
+%%BoundingBox: 0 0 1000 1000
+
 
 % 9e: POC: this version only handles endpoints in nextiter
 
@@ -412,6 +414,11 @@ end
 %     hpath
 % } def
 
+/metatiles-H 0 def
+/metatiles-T 0 def
+/metatiles-F 0 def
+/metatiles-P 0 def
+
 /metatile-FP {
     /F eq {
         grey
@@ -441,6 +448,7 @@ end
 } def
 
 /metatile-F {
+    /metatiles-F metatiles-F 1 add def
     draw-tiles-p {
         /F metatile-FP
     } if
@@ -479,7 +487,7 @@ end
 %
 
 /metatile-P {
-
+    /metatiles-P metatiles-P 1 add def
     draw-tiles-p {
         /P metatile-FP
     } if
@@ -547,6 +555,7 @@ end
   %
 
 /metatile-T {
+    /metatiles-T metatiles-T 1 add def
     gsave
         metatile-T-encloser-points
         0 get aload pop
@@ -623,6 +632,7 @@ end
 %   %
 
 /metatile-H {
+    /metatiles-H metatiles-H 1 add def
     gsave
         metatile-H-encloser-points
         0 get aload pop
@@ -1588,27 +1598,75 @@ end
     } ifelse
 } def
 
-1 nextiter
-2 nextiter
-3 nextiter
-4 nextiter
-5 nextiter
-6 nextiter
-
-/draw-tiles-p true def
-/draw-enclosers-p false def
-/draw-arrows-p true def
+{
+    1 nextiter
+    2 nextiter
+    3 nextiter
+    4 nextiter
+    5 nextiter
+    6 nextiter
 
 
-/epts true def
-
-/scalefactor 10 def
-
-tile-H-encloser-points-5 dup dup 0 get exch 2 get vadd exch 4 get vadd 1 3 div vmul scalefactor neg vmul aload pop translate
-4.25 inches 5.5 inches translate
-scalefactor dup scale
-tile-H-5
+    /draw-tiles-p true def
+    /draw-enclosers-p false def
+    /draw-arrows-p true def
 
 
 
+    /epts true def
+
+    /scalefactor 12 def
+
+    % tile-H-encloser-points-5 dup dup 0 get exch 2 get vadd exch 4 get vadd 1 3 div vmul scalefactor neg vmul aload pop translate
+%     25 inches 15 inches translate
+    4.25 inches 5.5 inches translate
+    scalefactor dup scale
+
+
+} exec
+
+% showpage
+
+{
 % transparent-colors
+
+1 1 10 {
+    nextiter
+} for
+
+/measures {
+    mark exch
+    dup length 1 sub 1 exch 1 exch {
+        dup                         % arr iota iota
+        2 index exch get            % arr iota arr[iota]
+        exch 1 sub                  % arr arr[iota] iota-1
+        2 index exch get            % arr arr[iota] arr[iota-1]
+        vsub vmeasure
+        exch
+    } for
+    pop
+    counttomark 1 sub {
+        add
+    } repeat
+    exch pop
+} def
+
+/n 10 def
+
+mark
+1 1 10 {
+    dup nextiter
+    (tile-F-encloser-points-) exch mksym cvx exec measures
+} for
+
+counttomark 1 sub
+{
+    1 index div
+    counttomark 1 roll
+} repeat
+
+/metatiles-H 0 def
+/metatiles-T 0 def
+/metatiles-F 0 def
+/metatiles-P 0 def
+} pop

@@ -1,0 +1,301 @@
+%!
+
+% Reference: https://arxiv.org/pdf/2303.10798.pdf
+
+%
+% 1. Some convenient 2d-vector operations.
+%
+
+%
+/vadd {                 % [x1 y1] [x2 y2] >>> [x1+x2 y1+y2]
+    aload pop           % [x1 y1] x2 y2
+    3 -1 roll           % x2 y2 [x1 y1]
+    aload pop           % x2 y2 x1 y1
+    3 -1 roll           % x2 x1 y1 y2
+    add                 % x2 x1 y1+y2
+    3 1 roll            % y1+y2 x2 x1
+    add                 % y1+y2 x2+x1
+    exch                % x2+x1 y1+y2
+    2 array astore      % [x1+x2 y1+y2]
+} def
+
+/vneg {                 % [x y] >>> [-x -y]
+    aload pop
+    neg exch neg exch
+    2 array astore
+} def
+
+/vsub {                 % [x1 y1] [x2 y2] >>> [x1-x2 y1-y2]
+    vneg
+    vadd
+} def
+
+/vmul {                 % [x y] m >>> [x*m y*m]
+    exch aload pop      % m x y
+    2 index             % m x y m
+    mul                 % m x y*m
+    3 1 roll            % y*m m x
+    mul                 % y*m x*m
+    exch
+    2 array astore
+} def
+
+/vmidpoint {             % [x1 y1] [x2 y2] >>> [(x1+x2)/2 (y1+y2)/2]
+    vadd
+    .5 vmul
+} def
+
+/vmeasure {             % [x y] >>> sqrt(x^2+y^2)
+    aload pop           % x y
+    dup mul             % x y*y
+    exch dup mul        % y*y x*x
+    add                 % x*x+y*y
+    sqrt                % sqrt(x^2+y^2)
+} def
+
+/vrot {                 % [x y] r >>> [xr yr]
+    dup cos             % [x y] r cos(r)
+    exch sin            % [x y] cos(r) sin(r)
+    3 -1 roll           % cos(r) sin(r) [x y]
+    dup                 % cos(r) sin(r) [x y] [x y]
+    aload pop           % cos(r) sin(r) [x y] x y
+    3 index             % cos(r) sin(r) [x y] x y sin(r)
+    neg                 % cos(r) sin(r) [x y] x y -sin(r)
+    mul                 % cos(r) sin(r) [x y] x -y*sin(r)
+    exch                % cos(r) sin(r) [x y] -y*sin(r) x
+    4 index             % cos(r) sin(r) [x y] -y*sin(r) x cos(r)
+    mul                 % cos(r) sin(r) [x y] -y*sin(r) x*cos(r)
+    add                 % cos(r) sin(r) [x y] x*cos(r)-y*sin(r)  // the new X
+    exch aload pop      % cos(r) sin(r) x*cos(r)-y*sin(r) x y
+    5 -1 roll           % sin(r) x*cos(r)-y*sin(r) x y cos(r)
+    mul                 % sin(r) x*cos(r)-y*sin(r) x y*cos(r)
+    exch                % sin(r) x*cos(r)-y*sin(r) y*cos(r) x
+    4 -1 roll           % x*cos(r)-y*sin(r) y*cos(r) x sin(r)
+    mul                 % x*cos(r)y*sin(r) y*cos(r) x*sin(r)
+    add                 % x*cos(r)-y*sin(r) x*sin(r)+y*cos(r)
+    2 array astore
+} def
+
+
+% % Intersect line segment [[x1 y1] [x2 y2]] with [[x3 y3] [x4 y4]]
+
+/vintersect {        % [x1 y1] [x2 y2] [x3 y3] [x4 y4] >>> ---
+    11 dict begin
+    aload pop /y4 exch def /x4 exch def
+    aload pop /y3 exch def /x3 exch def
+    aload pop /y2 exch def /x2 exch def
+    aload pop /y1 exch def /x1 exch def
+
+    /denominator
+        x1 x2 sub y3 y4 sub mul
+        y1 y2 sub x3 x4 sub mul sub
+    def
+
+    x1 y2 mul y1 x2 mul sub x3 x4 sub mul
+    x3 y4 mul y3 x4 mul sub x1 x2 sub mul sub
+    denominator div
+
+    x1 y2 mul y1 x2 mul sub y3 y4 sub mul
+    x3 y4 mul y3 x4 mul sub y1 y2 sub mul sub
+    denominator div
+    2 array astore
+    end
+} def
+
+/vdangle {                      % [x1 y1] [x2 y2] >>> angle-between-vectors
+    aload pop exch atan         % [x1 y1] a2
+    exch aload pop exch atan    % a2 a1
+    sub                         % a2-a1
+} def
+
+% symmetries
+
+/hmirror {              % [x y] >>> [x -y]
+    aload pop
+    neg
+    2 array astore
+} def
+
+/vmirror {              % [x y] >>> [-x y]
+    aload pop
+    exch neg exch
+    2 array astore
+} def
+
+/vopposite {            % [x y] >>> [-x -y]
+    vneg
+} def
+
+% translate an array of vectors
+/vtranslate {              % [[x1 y1] [x2 y2] ...] [x y] >>> [[x1t y1t] [x2t y2t] ...]
+    1 dict begin
+    /trans exch def
+    mark exch
+    {
+        trans vadd
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% rotate an array of vectors
+/vrotate {              % [[x1 y1] [x2 y2] ...] r >>> [[x1r y1r] [x2r y2r] ...]
+    1 dict begin
+    /angle exch def
+    mark exch
+    {
+        angle vrot
+    } forall
+    end
+    counttomark
+    array astore
+    exch pop
+} def
+
+% flip left-right an array of vectors
+/vflip {                % [[x1 y1] [x2 y2] ...] >>> [[-x1 y1] [-x2 y2] ...]
+    mark exch
+    {
+        vmirror
+    } forall
+    counttomark
+    array astore
+    exch pop
+} def
+
+% The raw tiles
+
+%
+%
+%                     Er-----Mr-----Dr
+%                    /               \
+%                   /                 \
+%                  Nr                 [8]
+%                 /                     \
+%                /                       \
+%               Fr          [9]          [7]----[6]-----Dg
+%                \                       /               \
+%                 \                     /                 \
+%                  Pr                  Ng                  Lg
+%                   \                 /                     \
+%                    \               /                       \
+%                   [11]----[10]----D           [5]           Cg
+%                    /               \                       /
+%                   /                 \                     /
+%                [12]                 [1]                 [4]
+%                 /                     \                 /
+%                /                       \               /
+%               F           [0]          [2]-----Jg----[3]
+%                \                       /
+%                 \      "black"        /
+%                  P                   K
+%                   \                 /
+%                    \               /
+%                     A------J------B
+
+
+/one 1 def
+/half .5 one mul def
+/sq3 3 sqrt one mul def
+/sq32 sq3 2 div def
+/sq-32 sq32 neg def
+
+50 50 scale
+.003 setlinewidth
+4 8 translate
+
+/hexagon {
+    gsave
+    currentpoint
+    newpath
+    moveto
+    1 0 rmoveto
+    120 rotate
+    1 1 6 {
+        pop
+        1 0 rlineto
+        60 rotate
+    } for
+    closepath stroke
+    grestore
+} def
+
+
+% Points on hexagon
+
+15 dict dup begin
+    % local variables!
+    /O [ 0 0 ] def
+
+    /A [ half neg sq32 neg ] def
+    /B A vmirror def
+    /C [ one 0 ] def
+    /D A vopposite def
+    /E A hmirror def
+    /F C vmirror def
+
+    /J A B vmidpoint def
+    /K B C vmidpoint def
+    /L C D vmidpoint def
+    /M D E vmidpoint def
+    /N E F vmidpoint def
+    /P F A vmidpoint def
+
+    /EA E A vsub def
+    /CA C A vsub def
+
+    [
+        O
+        L
+        C
+        B CA vadd
+        K CA vadd
+        O CA vadd
+        M CA vadd
+        E CA vadd
+        L EA vadd
+        O EA vadd
+        M
+        E
+        N
+    ]
+end
+exch /hexagondict exch def
+
+
+/hat-upright exch def
+/hat-flipped hat-upright vflip def
+
+/hpath {                        % grproc hatarray >>> -
+    gsave
+        newpath
+        dup 0 get aload pop moveto          % moveto the CAR
+        dup length 1 sub 1 exch getinterval % lineto the CDR
+        {
+            aload pop lineto
+        } forall
+        closepath
+        exec                    % grproc
+    grestore
+} def
+
+/strkk {
+    { 1 setlinejoin .02 setlinewidth 1 0 0 setrgbcolor stroke }
+} def
+
+/fillk {
+    { 1 setlinejoin .02 setlinewidth 1 0 0 setrgbcolor fill }
+} def
+
+{ .6 .8 .9 setrgbcolor fill } hat-upright hpath
+
+
+%0 0 .05 0 360 arc gsave  0 1 0 setrgbcolor fill grestore
+%0 0 .05 0 360 arc gsave  1 0 0 setrgbcolor fill grestore
+%0 0 .05 0 360 arc gsave  0 0 1 setrgbcolor fill grestore
+
+0 0 moveto hexagon
+0 3 sqrt moveto hexagon
+1.5 3 sqrt 2 div moveto hexagon

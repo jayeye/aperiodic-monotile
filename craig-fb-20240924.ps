@@ -1,0 +1,46 @@
+%!
+
+
+
+/hat {
+    1 dict dup begin
+    /t 3 sqrt def                   % tan(60⁰)
+    newpath
+    0 0 moveto
+    t 0 rlineto
+    90 neg rotate
+    1 0 rlineto
+    60 rotate
+    1 0 rlineto
+    90 neg rotate
+    t 0 rlineto
+    60 neg rotate
+    t 0 rlineto
+    90 rotate
+    1 0 rlineto
+    60 neg rotate
+    1 0 rlineto
+    90 neg rotate
+    t 0 rlineto
+    60 neg rotate
+    t 0 rlineto
+    90 rotate
+    1 0 rlineto
+    60 neg rotate
+    1 0 rlineto
+    1 0 rlineto
+    60 neg rotate
+    1 0 rlineto
+    90 neg rotate
+    t 0 rlineto
+    60 rotate
+    % currentpoint
+    closepath
+    end
+} def
+
+50 dup scale
+.005 setlinewidth
+4 8 translate
+hat stroke
+showpage
